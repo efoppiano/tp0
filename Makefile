@@ -44,12 +44,18 @@ docker-compose-up-testing:
 	TESTING=1 make docker-compose-up
 .PHONY: docker-compose-up-testing
 
-docker-compose-down:
+docker-compose-stop:
 	if [ $(TESTING) -eq 1 ]; then \
-		docker compose --profile testing -f docker-compose-dev.yaml stop -t 1; \
+		docker compose --profile testing -f docker-compose-dev.yaml stop -t 5; \
+	else \
+		docker compose -f docker-compose-dev.yaml stop -t 5; \
+	fi
+.PHONY: docker-compose-stop
+
+docker-compose-down: docker-compose-stop
+	if [ $(TESTING) -eq 1 ]; then \
 		docker compose --profile testing -f docker-compose-dev.yaml down; \
 	else \
-		docker compose -f docker-compose-dev.yaml stop -t 1; \
 		docker compose -f docker-compose-dev.yaml down; \
 	fi
 .PHONY: docker-compose-down
