@@ -15,6 +15,8 @@ services:
       - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
+    volumes:
+      - ./server/config.ini:/config.ini
 """
 
 
@@ -31,6 +33,8 @@ def get_compose_client_part(client_id):
       - testing_net
     depends_on:
       - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
 """.format(client_id=client_id)
 
 
