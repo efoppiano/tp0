@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -19,15 +20,17 @@ type ClientConfig struct {
 
 // Client Entity that encapsulates how
 type Client struct {
-	config ClientConfig
-	conn   net.Conn
+	config       ClientConfig
+	conn         net.Conn
+	shutdownChan chan os.Signal
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
-func NewClient(config ClientConfig) *Client {
+func NewClient(config ClientConfig, shutdownChan chan os.Signal) *Client {
 	client := &Client{
-		config: config,
+		config:       config,
+		shutdownChan: shutdownChan,
 	}
 	return client
 }
@@ -39,7 +42,7 @@ func (c *Client) createClientSocket() error {
 	conn, err := net.Dial("tcp", c.config.ServerAddress)
 	if err != nil {
 		log.Fatalf(
-	        "action: connect | result: fail | client_id: %v | error: %v",
+			"action: connect | result: fail | client_id: %v | error: %v",
 			c.config.ID,
 			err,
 		)
@@ -58,9 +61,9 @@ loop:
 	for timeout := time.After(c.config.LoopLapse); ; {
 		select {
 		case <-timeout:
-	        log.Infof("action: timeout_detected | result: success | client_id: %v",
-                c.config.ID,
-            )
+			log.Infof("action: timeout_detected | result: success | client_id: %v",
+				c.config.ID,
+			)
 			break loop
 		default:
 		}
@@ -81,19 +84,35 @@ loop:
 
 		if err != nil {
 			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-                c.config.ID,
+				c.config.ID,
 				err,
 			)
 			return
 		}
 		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-            c.config.ID,
-            msg,
-        )
+			c.config.ID,
+			msg,
+		)
 
-		// Wait a time between sending one message and the next one
-		time.Sleep(c.config.LoopPeriod)
+		// Sleep or receive from shutdownChan, whichever happens first
+		timer := time.NewTimer(c.config.LoopPeriod)
+		select {
+		case <-timer.C:
+			continue
+		case <-c.shutdownChan:
+			log.Infof("action: shutdown_detected | result: success | client_id: %v",
+				c.config.ID,
+			)
+			break loop
+		}
+
 	}
 
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+}
+
+// Shutdown executes the shutdown of the client
+func (c *Client) Shutdown() {
+	// Socket is already closed by the loop
+	log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
 }
