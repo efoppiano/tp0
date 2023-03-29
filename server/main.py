@@ -2,6 +2,8 @@
 
 import os
 import logging
+import signal
+import sys
 from configparser import ConfigParser
 from common.server import Server
 
@@ -49,6 +51,12 @@ def main():
 
     # Initialize server and start server loop
     server = Server(port, listen_backlog)
+
+    def shutdown_handler(_signum, _frame):
+        server.shutdown()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, shutdown_handler)
     server.run()
 
 

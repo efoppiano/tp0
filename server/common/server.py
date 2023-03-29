@@ -1,3 +1,4 @@
+import signal
 import socket
 import logging
 
@@ -56,3 +57,12 @@ class Server:
         c, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
+
+    def shutdown(self):
+        """
+        Shuts down the server
+        """
+        logging.info("action: shutdown | result: in_progress")
+        self._server_socket.close()
+        logging.info("action: shutdown | result: success")
+
