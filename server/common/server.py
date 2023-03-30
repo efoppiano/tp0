@@ -215,5 +215,8 @@ class Server:
         self._server_socket.close()
         if self._client_sock is not None:
             self._client_sock.close()
+
+        for (client_sock, _) in self._waiting_for_response:
+            client_sock.close()
         logging.info("action: shutdown | result: success")
 
