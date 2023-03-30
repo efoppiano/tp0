@@ -5,6 +5,7 @@
 
 * [Enunciado](#enunciado)
 * [Configuración](#configuración)
+  * [Variables de entorno](#variables-de-entorno)
   * [Configuración de los clientes](#configuración-de-los-clientes)
   * [Configuración de los servidores](#configuración-de-los-servidores)
 
@@ -14,11 +15,29 @@
 
 ## Configuración
 
+### Variables de entorno
+
+Las variables de entorno se definen en el archivo `.env` en la raíz del proyecto.
+
+El archivo `.env.example` contiene un ejemplo de las variables que se deben definir.
+
+- `CLIENTS`: Cantidad de clientes que se van a conectar al servidor o servidores
+
+- `SERVERS`: Cantidad de servidores que se deben levantar
+
+- `SERVER_NAME`: Nombre del servidor. Los clientes utilizan este nombre para conectarse al servidor, en
+lugar de la IP.
+
+- `SERVER_PORT`: Puerto en el que los servidores escuchan las conexiones de los clientes.
+
+- `DOCKET_SUBNET`: Subred en la cual se levanta la red de Docker.
+
 ### Configuración de los clientes
 
 Los clientes se configuran en el archivo [client/config.yaml](./client/config.yaml).
 
-- `server.address`: Dirección y puerto del servidor al cual se conecta el cliente.
+- `server.address`: Dirección y puerto del servidor al cual se conecta el cliente. Debe ser igual a
+`SERVER_NAME:SERVER_PORT` definido en el archivo `.env`.
 
 - `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch. 
 
@@ -28,11 +47,21 @@ Los clientes se configuran en el archivo [client/config.yaml](./client/config.ya
 
 Los servidores se configuran en el archivo [server/config.ini](./server/config.ini).
 
+- `SERVER_PORT`: Puerto en el que el servidor escucha las conexiones de los clientes. Debe ser igual a
+`SERVER_PORT` definido en el archivo `.env`.
+
 - `SERVER_LISTEN_BACKLOG`: Cantidad de conexiones pendientes que se pueden mantener en la cola de
 espera.
 
-- `AGENCIES_AMOUNT`: Cantidad de agencias que se van a simular. El servidor esperará a que todas
-se cierren para realizar el sorteo.
+- `UDP_BROADCAST_IP`: Dirección IP de broadcast para el envío de mensajes UDP. Se utiliza
+para la comunicación entre servidores. Ver [Comunicación y sincronización entre servidores](#comunicación-y-sincronización-entre-servidores)
+  para más información.
+
+- `UDP_BROADCAST_PORT`: Puerto de broadcast para el envío de mensajes UDP.
+
+- `AGENCIES_AMOUNT`: Cantidad de agencias que se van a simular. Los servidores esperarán a que todas
+se cierren para realizar el sorteo. Debe coincidir con la variable `CLIENTS` definida en el archivo
+`.env`.
 
 - `LOGGING_LEVEL`: Nivel de log. Puede ser `NOTSET` `DEBUG`, `INFO`, `WARNING`, `ERROR` o `CRITICAL`.
 
@@ -106,3 +135,37 @@ Contiene los documentos de los ganadores del sorteo correspondiente a la agencia
 
 - Formato: `WinnersResponse:documento1;documento2;...;documentoN\n`
 - Ejemplo: `WinnersResponse:34054835;38955439\n`
+
+## Características de la Arquitectura del Servidor
+
+- Multiprocessing
+- Cada instancia servidor corre en un container distinto, en la misma subred, y con el mismo alias
+  de DNS.
+- Cada instancia procesa las conexiones de manera secuencial
+- Los clientes se conectan utilizando el nombre del servidor, y el DNS de Docker se encarga de redirigir las
+  conexiones a la instancia que corresponda.
+
+### Comunicación y sincronización entre servidores
+
+### Archivos compartidos
+
+- **Archivo de apuestas**, donde se almacenan las apuestas de todas las agencias.
+  (`/shared-volume/bets.csv` en el container, `server/shared-volume/bets.csv` en el host)
+- **Archivo con los números de agencias que ya cerraron** (`/shared-volume/agencies_closed.txt` en el
+  container, `server/shared-volume/agencies_closed.txt` en el host). Este archivo se utiliza para
+  determinar cuándo se puede realizar el sorteo.
+- Cada archivo se encuentra protegido con un FileLock diferente, para evitar race conditions.
+
+### Socket UDP
+
+- Cuando un servidor recibe el último paquete `AgencyClose`, envía un mensaje UDP a todos los servidores
+  para indicar que se puede realizar el sorteo. Para esto, se utiliza una IP de broadcast y un puerto
+  específico (`172.25.125.255:5000` con la configuración por defecto).
+- Cuando un servidor lo recibe, procede a contestar todos los paquetes `WinnersRequest` pendientes.
+
+
+![diagrama_seq](resources/diagrama_seq.png)
+Diagrama de secuencia de la comunicación entre los clientes y los servidores.
+
+
+
