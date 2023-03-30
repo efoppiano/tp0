@@ -10,6 +10,13 @@ from common.packets.store_batch import STORE_BATCH_PACKET_TYPE
 
 from common.packets.store_batch import StoreBatch
 
+from common.packets.agency_close import AGENCY_CLOSE_PACKET_TYPE
+
+from common.packets.agency_close import AgencyClose
+
+from common.packets.winners_request import WINNERS_REQUEST_PACKET_TYPE
+
+from common.packets.winners_request import WinnersRequest
 from typing import List
 
 MAX_PACKET_SIZE = 8192
@@ -45,6 +52,29 @@ class PacketFactory:
         return StoreBatch.parse_batch(data)
 
     @staticmethod
+    def parse_agency_close_packet(data: bytes) -> str:
+        """
+        Receives a raw packet (result of a PacketFactory.read_raw_packet call) and parses
+        it into an agency number of the agency that closed.
+        If the packet is not an AgencyClose packet, raises an InvalidPacketTypeError.
+        """
+        if not PacketFactory.is_for_agency_close(data):
+            raise InvalidPacketTypeError("Invalid packet type in AgencyClose packet (expected 3).")
+        data = remove_packet_type(data)
+        return AgencyClose.parse_agency(data)
+
+    @staticmethod
+    def parse_winners_request_packet(data: bytes) -> str:
+        """
+        Receives a raw packet (result of a PacketFactory.read_raw_packet call) and parses
+        it into the agency number of the agency that requested the winners.
+        """
+        if not PacketFactory.is_for_winners_request(data):
+            raise InvalidPacketTypeError("Invalid packet type in WinnersRequest packet (expected 4).")
+        data = remove_packet_type(data)
+        return WinnersRequest.parse_agency(data)
+
+    @staticmethod
     def read_raw_packet(socket: SocketWrapper) -> bytes:
         """
         Read raw packet from client socket.
@@ -63,6 +93,14 @@ class PacketFactory:
     @staticmethod
     def is_for_store_batch(data: bytes) -> bool:
         return PacketFactory.__check_packet_type(data, STORE_BATCH_PACKET_TYPE)
+
+    @staticmethod
+    def is_for_agency_close(data: bytes) -> bool:
+        return PacketFactory.__check_packet_type(data, AGENCY_CLOSE_PACKET_TYPE)
+
+    @staticmethod
+    def is_for_winners_request(data: bytes) -> bool:
+        return PacketFactory.__check_packet_type(data, WINNERS_REQUEST_PACKET_TYPE)
 
     @staticmethod
     def __check_packet_type(data: bytes, expected_type: str) -> bool:

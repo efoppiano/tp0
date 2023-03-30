@@ -49,3 +49,18 @@ func DecodeStoreResponse(data []byte) (StoreResponse, error) {
 
 	return packet, nil
 }
+
+func DecodeWinnersResponsePacket(data []byte) (WinnersResponsePacket, error) {
+	err := checkPacketType(data, WinnersResponsePacketType)
+	if err != nil {
+		return WinnersResponsePacket{}, err
+	}
+	data = removePacketType(data)
+
+	packet, err := newWinnersResponse(data)
+	if err != nil {
+		return WinnersResponsePacket{}, err
+	}
+
+	return packet, nil
+}

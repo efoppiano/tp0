@@ -88,6 +88,18 @@ services:
       - ./client/config.yaml:/config.yaml
       - .data:/data:ro
 
+  netcat:
+    container_name: netcat
+    image: alpine:latest
+    stdin_open: true
+    tty: true
+    profiles:
+      - testing
+    networks:
+      - testing_net
+    depends_on:
+      - server
+
 networks:
   testing_net:
     ipam:

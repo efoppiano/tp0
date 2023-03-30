@@ -220,3 +220,73 @@ func (c *Client) SendBatch(bets []model.Bet) error {
 
 	return nil
 }
+
+func (c *Client) CloseAgency() {
+	err := c.createClientSocket()
+	if err != nil {
+		log.Errorf("action: close_agency | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return
+	}
+	packet := packets.NewAgencyClosePacket(c.config.ID)
+	bytes, err := packet.Encode()
+	if err != nil {
+		log.Errorf("action: close_agency | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return
+	}
+	err = packets.WriteAll(&c.conn, bytes)
+	if err != nil {
+		log.Errorf("action: close_agency | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return
+	}
+	log.Infof("action: close_agency | result: success | client_id: %v",
+		c.config.ID,
+	)
+	return
+}
+
+func (c *Client) GetWinners() ([]string, error) {
+	err := c.createClientSocket()
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("action: get_winners | result: in_progress | client_id: %v",
+		c.config.ID,
+	)
+
+	packet := packets.NewWinnersRequestPacket(c.config.ID)
+	bytes, err := packet.Encode()
+	if err != nil {
+		log.Errorf("action: get_winners | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return nil, err
+	}
+	err = packets.WriteAll(&c.conn, bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	rawPacket, err := packets.ReadRawPacket(&c.conn)
+	if err != nil {
+		return nil, err
+	}
+	response, err := packets.DecodeWinnersResponsePacket(rawPacket)
+	if err != nil {
+		log.Errorf("action: receive_packet | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return nil, err
+	}
+	return response.Documents, nil
+}

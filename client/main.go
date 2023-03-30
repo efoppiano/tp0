@@ -114,6 +114,16 @@ func main() {
 		client.Shutdown()
 		return
 	}
+	client.CloseAgency()
+
+	winners, err := client.GetWinners()
+	if err != nil {
+		log.Errorf("consulta_ganadores | result: error | error: %s", err)
+	} else {
+		log.Infof("consulta_ganadores | result: success | cant_ganadores: %v",
+			len(winners),
+		)
+	}
 	client.Shutdown()
 }
 
