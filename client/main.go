@@ -2,18 +2,15 @@ package main
 
 import (
 	"fmt"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common/model"
+	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
-
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-
-	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
 )
 
 // InitConfig Function that uses viper library to parse configuration parameters.
@@ -33,28 +30,34 @@ func InitConfig() (*viper.Viper, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// Add env variables supported
-	v.BindEnv("id")
-	v.BindEnv("server", "address")
-	v.BindEnv("loop", "period")
-	v.BindEnv("loop", "lapse")
-	v.BindEnv("log", "level")
+	err := v.BindEnv("id")
+	if err != nil {
+		return nil, err
+	}
+	err = v.BindEnv("server", "address")
+	if err != nil {
+		return nil, err
+	}
+	err = v.BindEnv("loop", "period")
+	if err != nil {
+		return nil, err
+	}
+	err = v.BindEnv("loop", "lapse")
+	if err != nil {
+		return nil, err
+	}
+	err = v.BindEnv("log", "level")
+	if err != nil {
+		return nil, err
+	}
 
 	// Try to read configuration from config file. If config file
-	// does not exists then ReadInConfig will fail but configuration
+	// does not exist then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't
 	// return an error in that case
 	v.SetConfigFile("./config.yaml")
 	if err := v.ReadInConfig(); err != nil {
 		fmt.Printf("Configuration could not be read from config file. Using env variables instead")
-	}
-
-	// Parse time.Duration variables and return an error if those variables cannot be parsed
-	if _, err := time.ParseDuration(v.GetString("loop.lapse")); err != nil {
-		return nil, errors.Wrapf(err, "Could not parse CLI_LOOP_LAPSE env var as time.Duration.")
-	}
-
-	if _, err := time.ParseDuration(v.GetString("loop.period")); err != nil {
-		return nil, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
 	}
 
 	return v, nil
@@ -81,11 +84,10 @@ func InitLogger(logLevel string) error {
 // PrintConfig Print all the configuration parameters of the program.
 // For debugging purposes only
 func PrintConfig(v *viper.Viper) {
-	logrus.Infof("action: config | result: success | client_id: %s | server_address: %s | loop_lapse: %v | loop_period: %v | log_level: %s",
+	logrus.Infof("action: config | result: success | client_id: %s | server_address: %s | batch_size %d | log_level %s",
 		v.GetString("id"),
 		v.GetString("server.address"),
-		v.GetDuration("loop.lapse"),
-		v.GetDuration("loop.period"),
+		v.GetInt("batch_size"),
 		v.GetString("log.level"),
 	)
 }
@@ -106,14 +108,26 @@ func main() {
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
-		LoopLapse:     v.GetDuration("loop.lapse"),
-		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
 	shutdownChan := make(chan os.Signal, 1)
 	signal.Notify(shutdownChan, syscall.SIGTERM, syscall.SIGINT)
 
 	client := common.NewClient(clientConfig, shutdownChan)
-	client.StartClientLoop()
+
+	err = sendBets(client)
+	if err != nil {
+		log.Errorf("%s", err)
+		client.Shutdown()
+		return
+	}
 	client.Shutdown()
+}
+
+func sendBets(client *common.Client) error {
+	bet, err := common.GetBetFromEnv()
+	if err != nil {
+		return err
+	}
+	return client.SendBets([]model.Bet{bet})
 }

@@ -1,21 +1,18 @@
 package common
 
 import (
-	"bufio"
-	"fmt"
+	"errors"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common/model"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common/packets"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"os"
-	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopLapse     time.Duration
-	LoopPeriod    time.Duration
 }
 
 // Client Entity that encapsulates how
@@ -51,64 +48,93 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop() {
-	// autoincremental msgID to identify every message sent
-	msgID := 1
-
-loop:
-	// Send messages if the loopLapse threshold has not been surpassed
-	for timeout := time.After(c.config.LoopLapse); ; {
-		select {
-		case <-timeout:
-			log.Infof("action: timeout_detected | result: success | client_id: %v",
-				c.config.ID,
-			)
-			break loop
-		default:
-		}
-
-		// Create the connection the server in every loop iteration. Send an
-		c.createClientSocket()
-
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
-			"[CLIENT %v] Message N°%v\n",
+func (c *Client) SendBet(bet *model.Bet) error {
+	packet := packets.NewStoreBetFromBet(bet, c.config.ID)
+	bytes, err := packet.Encode()
+	if err != nil {
+		log.Errorf("action: encode_packet | result: fail | client_id: %v | error: %v",
 			c.config.ID,
-			msgID,
+			err,
 		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-		msgID++
-		c.conn.Close()
+		return err
+	}
+	err = packets.WriteAll(&c.conn, bytes)
+	if err != nil {
+		log.Errorf("action: send_packet | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return err
+	}
+	log.Infof("action: send_packet | result: success | client_id: %v | packet: %v",
+		c.config.ID,
+		packet,
+	)
 
+	return nil
+}
+
+func (c *Client) ReceiveBetResponse() error {
+	rawPacket, err := packets.ReadRawPacket(&c.conn)
+	if err != nil {
+		log.Errorf("action: receive_bet_response | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return err
+	}
+	packet, err := packets.DecodeStoreResponse(rawPacket)
+	if err != nil {
+		log.Errorf("action: receive_bet_response | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return err
+	}
+	if packet.Status == packets.StatusError {
+		log.Errorf("action: receive_bet_response | result: fail | client_id: %v",
+			c.config.ID,
+		)
+		return err
+	}
+	log.Infof("action: receive_bet_response | result: success | client_id: %v",
+		c.config.ID,
+	)
+
+	return nil
+}
+
+var ErrShutdown = errors.New("shutdown")
+
+func (c *Client) SendBets(bets []model.Bet) error {
+	for _, bet := range bets {
+		err := c.createClientSocket()
 		if err != nil {
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
-			return
+			return err
 		}
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-			c.config.ID,
-			msg,
-		)
-
-		// Sleep or receive from shutdownChan, whichever happens first
-		timer := time.NewTimer(c.config.LoopPeriod)
+		err = c.SendBet(&bet)
+		if err != nil {
+			return err
+		}
+		err = c.ReceiveBetResponse()
+		if err != nil {
+			return err
+		}
+		err = c.conn.Close()
+		if err != nil {
+			return err
+		}
+		c.conn = nil
 		select {
-		case <-timer.C:
-			continue
 		case <-c.shutdownChan:
-			log.Infof("action: shutdown_detected | result: success | client_id: %v",
-				c.config.ID,
-			)
-			break loop
+			return ErrShutdown
+		default:
+			continue
 		}
-
 	}
 
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+	log.Infof("action: send_bets | result: success | client_id: %v", c.config.ID)
+	return nil
 }
 
 // Shutdown executes the shutdown of the client

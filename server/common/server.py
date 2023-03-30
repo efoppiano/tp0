@@ -1,17 +1,36 @@
-import os
-import select
-import signal
 import socket
 import logging
 
+from common.socket_wrapper import SocketWrapper
+
+from common.packets.packet_factory import PacketFactory
+
+from common.errors import ProtocolViolation
+from common.packets.store_response import StoreResponse, STATUS_ERROR, STATUS_OK
+from common.utils import store_bets
+
+
+class ServerConfig:
+    def __init__(self, logging_level, port, listen_backlog):
+        self.logging_level = logging_level
+        self.port = port
+        self.listen_backlog = listen_backlog
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, config: ServerConfig):
+        self._config = config
+
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.bind(('', port))
-        self._server_socket.listen(listen_backlog)
+        self.__set_up_tcp_socket()
         self._client_sock = None
+
+    def __set_up_tcp_socket(self):
+        # Initialize server socket
+        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self._server_socket.bind(('', self._config.port))
+        self._server_socket.listen(self._config.listen_backlog)
 
     def run(self):
         """
@@ -26,25 +45,46 @@ class Server:
             client_sock = self.__accept_new_connection()
             self.__handle_client_connection(client_sock)
 
-    def __handle_client_connection(self, client_sock):
+    def __handle_client_connection(self, client_sock: SocketWrapper):
         """
         Read message from a specific client socket and closes the socket
 
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
-        self._client_sock = client_sock
+        addr = client_sock.getpeername()
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
-        except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
-        finally:
+            should_close = self.__handle_packet(client_sock)
+            if should_close:
+                client_sock.close()
+                logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
+        except Exception as e:
+            logging.error(f"action: receive_message | result: fail | ip: {addr[0]} | error: {e}")
             client_sock.close()
+            logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
+
+    def __handle_packet(self, client_sock: SocketWrapper) -> bool:
+        """
+        Handles a packet received from a client.
+        Returns True if the socket should be closed, False otherwise.
+        """
+        data = PacketFactory.read_raw_packet(client_sock)
+        if PacketFactory.is_for_store_bet(data):
+            self.__handle_store_bet(client_sock, data)
+            return True
+        else:
+            raise ProtocolViolation("Invalid packet type.")
+
+    def __handle_store_bet(self, client_sock: SocketWrapper, data: bytes):
+        try:
+            bet = PacketFactory.parse_store_bet_packet(data)
+            logging.info("action: store_bet | result: in_progress")
+            store_bets([bet])
+            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+            client_sock.send_all(StoreResponse(STATUS_OK).to_bytes())
+        except Exception as e:
+            logging.error(f"action: parse_store_bet_packet | result: fail | error: {e}")
+            client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
 
     def __accept_new_connection(self):
         """
@@ -58,7 +98,7 @@ class Server:
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
+        return SocketWrapper(c)
 
     def shutdown(self):
         """

@@ -4,9 +4,8 @@ import os
 import logging
 import signal
 import sys
-import threading
 from configparser import ConfigParser
-from common.server import Server
+from common.server import Server, ServerConfig
 
 
 def initialize_config():
@@ -34,24 +33,21 @@ def initialize_config():
     except ValueError as e:
         raise ValueError("Key could not be parsed. Error: {}. Aborting server".format(e))
 
-    return config_params
+    return ServerConfig(**config_params)
 
 
 def main():
-    config_params = initialize_config()
-    logging_level = config_params["logging_level"]
-    port = config_params["port"]
-    listen_backlog = config_params["listen_backlog"]
+    server_config = initialize_config()
 
-    initialize_log(logging_level)
+    initialize_log(server_config.logging_level)
 
     # Log config parameters at the beginning of the program to verify the configuration
     # of the component
-    logging.debug(f"action: config | result: success | port: {port} | "
-                  f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
+    logging.debug(f"action: config | result: success | port: {server_config.port} | "
+                  f"listen_backlog: {server_config.listen_backlog} | logging_level: {server_config.logging_level}")
 
     # Initialize server and start server loop
-    server = Server(port, listen_backlog)
+    server = Server(server_config)
 
     def shutdown_handler(_signum, _frame):
         server.shutdown()
