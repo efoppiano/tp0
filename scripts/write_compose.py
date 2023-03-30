@@ -35,6 +35,7 @@ def get_compose_client_part(client_id):
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - .data:/data:ro
 """.format(client_id=client_id)
 
 
