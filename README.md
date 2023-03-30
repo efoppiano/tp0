@@ -11,6 +11,7 @@
   * [Ejercicio 3](#ejercicio-3)
   * [Ejercicio 4](#ejercicio-4)
   * [Ejercicio 5](#ejercicio-5)
+  * [Ejercicio 6](#ejercicio-6)
 * [Configuración](#configuración)
   * [Configuración de los clientes](#configuración-de-los-clientes)
   * [Configuración de los servidores](#configuración-de-los-servidores)
@@ -91,6 +92,19 @@ Ejecutar:
     $> docker compose -f docker-compose-dev.yaml logs | grep apuesta_enviada
     $> docker compose -f docker-compose-dev.yaml logs | grep apuesta_almacenada
 
+
+### Ejercicio 6
+
+Copiar los archivos de apuestas de las agencias a la carpeta `.data`.
+
+Ejecutar:
+
+    $> make docker-compose-up
+
+Verificar que se almacenaron todas las apuestas ejecutando:
+
+    $> docker exec server sh -c "wc -l bets.csv"
+    $> wc -l .data/*
 
 ## Configuración
 
