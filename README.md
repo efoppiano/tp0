@@ -7,6 +7,7 @@
 * [Ejecución de los ejercicios](#ejecución-de-los-ejercicios)
   * [Ejercicio 1](#ejercicio-1)
   * [Ejercicio 1.1](#ejercicio-11)
+  * [Ejercicio 2](#ejercicio-2)
 
 ## Enunciado
 [Link al enunciado](enunciado.md)
@@ -32,3 +33,15 @@ Al finalizar, se espera un output similar al siguiente:
 Correr el script con el siguiente comando:
 
     $> python3 scripts/write_compose.py <NUMBER_OF_CLIENTS>
+
+### Ejercicio 2
+
+Para verificar que funcionan los volúmenes, ejecutar:
+
+    $> make docker-compose-up
+
+Modificar el archivo `server/config.ini`. Luego, ingresar en el container del servidor y confirmar
+que el archivo fue modificado:
+
+    $> docker exec -it server bash
+    $> cat config.ini
