@@ -9,6 +9,7 @@
   * [Ejercicio 1.1](#ejercicio-11)
   * [Ejercicio 2](#ejercicio-2)
   * [Ejercicio 3](#ejercicio-3)
+  * [Ejercicio 4](#ejercicio-4)
 
 ## Enunciado
 [Link al enunciado](enunciado.md)
@@ -66,3 +67,14 @@ Para enviar mensajes manualmente, ejecutar:
 
     $> make RERUN=1 test-netcat-manual
     $> echo 'Mensaje' | nc server 12345
+
+
+### Ejercicio 4
+
+Ejecutar:
+
+    $> make docker-compose-up
+    $> make docker-compose-stop
+    $> docker compose -f docker-compose-dev.yaml logs | grep "shutdown "
+
+Y confirmar que todos los containers se detuvieron correctamente.
