@@ -2,16 +2,20 @@ version: '3.9'
 name: tp0
 services:
   server:
-    container_name: server
     image: server:latest
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
     networks:
-      - testing_net
+      testing_net:
+        aliases:
+          - server
     volumes:
-      - ./server/config.ini:/config.ini
+      - ./server/config.ini:/config.ini:ro
+      - ./server/shared-volume:/shared-volume
+    deploy:
+      replicas: 5
 
   client1:
     container_name: client1
@@ -23,9 +27,9 @@ services:
     networks:
       - testing_net
     depends_on:
-      - server
+      - server    
     volumes:
-      - ./client/config.yaml:/config.yaml
+      - ./client/config.yaml:/config.yaml:ro
       - .data:/data:ro
 
   client2:
@@ -38,9 +42,9 @@ services:
     networks:
       - testing_net
     depends_on:
-      - server
+      - server    
     volumes:
-      - ./client/config.yaml:/config.yaml
+      - ./client/config.yaml:/config.yaml:ro
       - .data:/data:ro
 
   client3:
@@ -53,9 +57,9 @@ services:
     networks:
       - testing_net
     depends_on:
-      - server
+      - server    
     volumes:
-      - ./client/config.yaml:/config.yaml
+      - ./client/config.yaml:/config.yaml:ro
       - .data:/data:ro
 
   client4:
@@ -68,9 +72,9 @@ services:
     networks:
       - testing_net
     depends_on:
-      - server
+      - server    
     volumes:
-      - ./client/config.yaml:/config.yaml
+      - ./client/config.yaml:/config.yaml:ro
       - .data:/data:ro
 
   client5:
@@ -83,9 +87,9 @@ services:
     networks:
       - testing_net
     depends_on:
-      - server
+      - server    
     volumes:
-      - ./client/config.yaml:/config.yaml
+      - ./client/config.yaml:/config.yaml:ro
       - .data:/data:ro
 
   netcat:
@@ -105,4 +109,4 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: 172.25.125.0/24
+        - subnet: ${DOCKER_SUBNET}

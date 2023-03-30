@@ -2,22 +2,26 @@ import sys
 
 DOCKER_COMPOSE_PATH = "./docker-compose-dev.yaml"
 
-def get_compose_first_part():
+def get_compose_first_part(servers: int):
     return """version: '3.9'
 name: tp0
 services:
   server:
-    container_name: server
     image: server:latest
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
     networks:
-      - testing_net
+      testing_net:
+        aliases:
+          - server
     volumes:
-      - ./server/config.ini:/config.ini
-"""
+      - ./server/config.ini:/config.ini:ro
+      - ./server/shared-volume:/shared-volume
+    deploy:
+      replicas: {servers}
+""".format(servers=servers)
 
 
 def get_compose_client_part(client_id):
@@ -32,7 +36,7 @@ def get_compose_client_part(client_id):
     networks:
       - testing_net
     depends_on:
-      - server
+      - server    
     volumes:
       - ./client/config.yaml:/config.yaml
       - .data:/data:ro
@@ -45,7 +49,7 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: 172.25.125.0/24
+        - subnet: ${DOCKER_SUBNET}
 """
 
 
@@ -55,9 +59,9 @@ def write_all(file, data):
         chars_written += file.write(data[chars_written:])
 
 
-def write_docker_compose_file(clients_amount):
+def write_docker_compose_file(clients_amount, servers_amount):
     with open(DOCKER_COMPOSE_PATH, "w") as docker_compose_file:
-        write_all(docker_compose_file, get_compose_first_part())
+        write_all(docker_compose_file, get_compose_first_part(servers_amount))
         for i in range(1, clients_amount+1):
             write_all(docker_compose_file, get_compose_client_part(i))
 
@@ -65,17 +69,18 @@ def write_docker_compose_file(clients_amount):
 
 
 def main():
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print("Error: Not enough arguments provided")
-        print("Use: python3 ./write_compose.py <NUMBER_OF_CLIENTS>")
+        print("Use: python3 ./write_compose.py <NUMBER_OF_CLIENTS> <NUMBER_OF_SERVERS>")
         return
 
     try:
         clients_amount = int(sys.argv[1])
+        servers_amount = int(sys.argv[2])
     except ValueError:
         print("Error: Invalid argument provided")
-        print("Use: python3 ./write_compose.py <NUMBER_OF_CLIENTS>")
+        print("Use: python3 ./write_compose.py <NUMBER_OF_CLIENTS> <NUMBER_OF_SERVERS>")
         return
-    write_docker_compose_file(clients_amount)
+    write_docker_compose_file(clients_amount, servers_amount)
 
 main()

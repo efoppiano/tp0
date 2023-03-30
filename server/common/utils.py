@@ -3,7 +3,7 @@ import datetime
 
 
 """ Bets storage location. """
-STORAGE_FILEPATH = "./bets.csv"
+STORAGE_FILEPATH = "./shared-volume/bets.csv"
 """ Simulated winner number in the lottery contest. """
 LOTTERY_WINNER_NUMBER = 7574
 

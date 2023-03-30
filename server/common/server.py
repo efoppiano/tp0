@@ -1,3 +1,4 @@
+import select
 import socket
 import logging
 from typing import Set
@@ -14,19 +15,28 @@ from common.ipc.closed_agencies import ClosedAgencies
 from common.packets.winners_response import WinnersResponse
 from common.utils import load_bets, has_won
 
+from common.ipc.FLock import FLock
+
+BET_ENDED_MSG = b'bet_ended'
+BETS_CSV_LOCK_NAME = "bets.csv.lock"
+
 
 class ServerConfig:
-    def __init__(self, logging_level, port, listen_backlog, agencies_amount):
+    def __init__(self, logging_level, port, listen_backlog, udp_broadcast_ip, udp_broadcast_port, agencies_amount):
         self.logging_level = logging_level
         self.port = port
         self.listen_backlog = listen_backlog
+        self.udp_broadcast_ip = udp_broadcast_ip
+        self.udp_broadcast_port = udp_broadcast_port
         self.agencies_amount = agencies_amount
+
 
 class Server:
     def __init__(self, config: ServerConfig):
         self._config = config
 
         self._closed_agencies = ClosedAgencies()
+        self._db_lock = FLock(BETS_CSV_LOCK_NAME)
 
         self._waiting_for_response = []
         # When the bet ends, this will contain a dictionary with the winners per agency.
@@ -34,8 +44,15 @@ class Server:
         # of the winners.
         self._winners_per_agency = None
 
+        self.__set_up_udp_socket()
         self.__set_up_tcp_socket()
         self._client_sock = None
+
+    def __set_up_udp_socket(self):
+        # Initialize UDP socket
+        self._server_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._server_udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self._server_udp_socket.bind(('', self._config.udp_broadcast_port))
 
     def __set_up_tcp_socket(self):
         # Initialize server socket
@@ -49,16 +66,27 @@ class Server:
 
     def run(self):
         """
-        Dummy Server loop
-
         Server that accept a new connections and establishes a
-        communication with a client. After client with communucation
+        communication with a client. After client with communication
         finishes, servers starts to accept new connections again
         """
 
         while True:
-            client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+            # Connection arrived
+            logging.info('action: accept_connections | result: in_progress')
+            input_sources = [self._server_socket, self._server_udp_socket]
+            ready_to_read, _, _ = select.select(input_sources, [], [])
+
+            for source in ready_to_read:
+                if source is self._server_socket:
+                    client_sock = self.__accept_new_connection()
+                    self.__handle_client_connection(client_sock)
+
+                elif source is self._server_udp_socket:
+                    data, addr = self._server_udp_socket.recvfrom(1024)
+                    if data == BET_ENDED_MSG:
+                        logging.info('action: sorteo | result: success')
+                        self.__send_winners_to_waiting_agencies()
 
     def __handle_client_connection(self, client_sock: SocketWrapper):
         """
@@ -109,7 +137,9 @@ class Server:
                 client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
                 return
             logging.info("action: store_bet | result: in_progress")
+            self._db_lock.acquire()
             store_bets([bet])
+            self._db_lock.release()
             logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
             client_sock.send_all(StoreResponse(STATUS_OK).to_bytes())
         except Exception as e:
@@ -124,7 +154,9 @@ class Server:
             if self._closed_agencies.contains(agency):
                 client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
                 return
+            self._db_lock.acquire()
             store_bets(bets)
+            self._db_lock.release()
 
             logging.info(f'action: apuestas_almacenadas | result: success | cantidad: {len(bets)}')
             client_sock.send_all(StoreResponse(STATUS_OK).to_bytes())
@@ -138,18 +170,21 @@ class Server:
         self._closed_agencies.add(int(agency))
         logging.info(f'action: agency_close | result: success | agency: {agency}')
         if self.__bet_ended():
-            logging.info('action: sorteo | result: success')
-            self.__send_winners_to_waiting_agencies()
+            self._server_udp_socket.sendto(BET_ENDED_MSG,
+                                           (self._config.udp_broadcast_ip, self._config.udp_broadcast_port))
+            logging.info('action: broadcast | result: success')
 
     def __populate_winners(self):
         logging.info('action: populate_winners | result: in_progress')
         self._winners_per_agency = {}
+        self._db_lock.acquire(exclusive=False)
         for bet in load_bets():
             if has_won(bet):
                 self._winners_per_agency.setdefault(bet.agency, [])
                 self._winners_per_agency[bet.agency].append(bet.document)
 
         logging.info(f'action: populate_winners | result: success | winners: {self._winners_per_agency}')
+        self._db_lock.release()
 
     def __get_winners_of_agency(self, agency: int) -> Set[str]:
         if self._winners_per_agency is None:
@@ -213,6 +248,7 @@ class Server:
         """
         logging.info("action: shutdown | result: in_progress")
         self._server_socket.close()
+        self._server_udp_socket.close()
         if self._client_sock is not None:
             self._client_sock.close()
 
