@@ -8,6 +8,7 @@
   * [Ejercicio 1](#ejercicio-1)
   * [Ejercicio 1.1](#ejercicio-11)
   * [Ejercicio 2](#ejercicio-2)
+  * [Ejercicio 3](#ejercicio-3)
 
 ## Enunciado
 [Link al enunciado](enunciado.md)
@@ -45,3 +46,23 @@ que el archivo fue modificado:
 
     $> docker exec -it server bash
     $> cat config.ini
+
+### Ejercicio 3
+
+El siguiente comando levanta los containers y envía dos mensajes al servidor, utilizando netcat:
+
+    $> make RERUN=1 test-netcat-auto
+
+Se espera el siguiente output:
+
+```bash
+docker exec netcat sh -c "echo 'Hello World!' | nc server 12345"
+Hello World!
+docker exec netcat sh -c "echo 'Elian Foppiano' | nc server 12345"
+Elian Foppiano
+```
+
+Para enviar mensajes manualmente, ejecutar:
+
+    $> make RERUN=1 test-netcat-manual
+    $> echo 'Mensaje' | nc server 12345
