@@ -13,6 +13,7 @@
   * [Ejercicio 5](#ejercicio-5)
   * [Ejercicio 6](#ejercicio-6)
   * [Ejercicio 7](#ejercicio-7)
+  * [Ejercicio 8](#ejercicio-8)
 * [Configuración](#configuración)
   * [Variables de entorno](#variables-de-entorno)
   * [Configuración de los clientes](#configuración-de-los-clientes)
@@ -115,6 +116,20 @@ Ejecutar:
     $> make docker-compose-up
     $> docker compose -f docker-compose-dev.yaml logs | grep sorteo
     $> docker compose -f docker-compose-dev.yaml logs | grep consulta_ganadores
+
+### Ejercicio 8
+
+Ejecutar:
+
+    $> make docker-compose-up
+    $> docker compose -f docker-compose-dev.yaml logs | grep sorteo
+    $> docker compose -f docker-compose-dev.yaml logs | grep consulta_ganadores
+
+El siguiente comando testea el servidor, ejecutando 100 veces el target `make docker-compose-up`,
+y verificando que en cada ejecución se obtengan las cantidades correctas de ganadores para cada
+agencia:
+
+    $> ./scripts/integration_test.sh
 
 ## Configuración
 
