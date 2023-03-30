@@ -12,6 +12,7 @@
   * [Ejercicio 4](#ejercicio-4)
   * [Ejercicio 5](#ejercicio-5)
   * [Ejercicio 6](#ejercicio-6)
+  * [Ejercicio 7](#ejercicio-7)
 * [Configuración](#configuración)
   * [Configuración de los clientes](#configuración-de-los-clientes)
   * [Configuración de los servidores](#configuración-de-los-servidores)
@@ -105,6 +106,14 @@ Verificar que se almacenaron todas las apuestas ejecutando:
 
     $> docker exec server sh -c "wc -l bets.csv"
     $> wc -l .data/*
+
+### Ejercicio 7
+
+Ejecutar:
+
+    $> make docker-compose-up
+    $> docker compose -f docker-compose-dev.yaml logs | grep sorteo
+    $> docker compose -f docker-compose-dev.yaml logs | grep consulta_ganadores
 
 ## Configuración
 
