@@ -72,6 +72,9 @@ class Server:
         if PacketFactory.is_for_store_bet(data):
             self.__handle_store_bet(client_sock, data)
             return True
+        elif PacketFactory.is_for_store_batch(data):
+            self.__handle_store_batch(client_sock, data)
+            return True
         else:
             raise ProtocolViolation("Invalid packet type.")
 
@@ -84,6 +87,17 @@ class Server:
             client_sock.send_all(StoreResponse(STATUS_OK).to_bytes())
         except Exception as e:
             logging.error(f"action: parse_store_bet_packet | result: fail | error: {e}")
+            client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
+
+    def __handle_store_batch(self, client_sock: SocketWrapper, data: bytes):
+        try:
+            bets = PacketFactory.parse_store_batch_packet(data)
+            store_bets(bets)
+
+            logging.info(f'action: apuestas_almacenadas | result: success | cantidad: {len(bets)}')
+            client_sock.send_all(StoreResponse(STATUS_OK).to_bytes())
+        except Exception as e:
+            logging.error(f"action: parse_store_batch_packet | result: fail | error: {e}")
             client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
 
     def __accept_new_connection(self):

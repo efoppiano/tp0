@@ -13,6 +13,7 @@ import (
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
+	BatchSize     int
 }
 
 // Client Entity that encapsulates how
@@ -141,4 +142,81 @@ func (c *Client) SendBets(bets []model.Bet) error {
 func (c *Client) Shutdown() {
 	// Socket is already closed by the loop
 	log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
+}
+
+func (c *Client) SendBetsInBatches(betsReader *BetsReader) error {
+	bets, err := betsReader.ReadBets()
+	for err == nil && len(bets) > 0 {
+		err := c.createClientSocket()
+		if err != nil {
+			return err
+		}
+		err = c.SendBatch(bets)
+		if err != nil {
+			return err
+		}
+		bets, err = betsReader.ReadBets()
+		if err != nil {
+			return err
+		}
+		select {
+		case <-c.shutdownChan:
+			return ErrShutdown
+		default:
+			continue
+		}
+	}
+	if err != nil {
+		return err
+	}
+	log.Infof("action: send_bets_in_batches | result: success | client_id: %v", c.config.ID)
+	return nil
+}
+
+func (c *Client) SendBatch(bets []model.Bet) error {
+	packet := packets.NewStoreBatchFromBets(bets, c.config.ID)
+	log.Infof("action: send_batch | result: in_progress | client_id: %v",
+		c.config.ID,
+	)
+	bytes, err := packet.Encode()
+	if err != nil {
+		log.Errorf("action: encode_packet | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return err
+	}
+	err = packets.WriteAll(&c.conn, bytes)
+	if err != nil {
+		log.Errorf("action: encode_packet | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return err
+	}
+	log.Infof("action: send_batch | result: success | client_id: %v | packet: %v",
+		c.config.ID,
+		string(bytes),
+	)
+
+	err = c.ReceiveBetResponse()
+	if err != nil {
+		log.Errorf("action: receive_bet_response | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+
+		return err
+	}
+	err = c.conn.Close()
+	if err != nil {
+		return err
+	}
+	c.conn = nil
+	log.Infof("action: send_batch | result: success | client_id: %v | bets_sent: %v",
+		c.config.ID,
+		len(bets),
+	)
+
+	return nil
 }

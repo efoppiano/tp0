@@ -1,5 +1,7 @@
 # id: 1
 server:
   address: "server:12345"
+# bets per batch message
+batch_size: 20
 log:
   level: "info"

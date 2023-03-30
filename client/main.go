@@ -100,6 +100,7 @@ func main() {
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
+		BatchSize:     v.GetInt("batch_size"),
 	}
 
 	shutdownChan := make(chan os.Signal, 1)
@@ -107,7 +108,7 @@ func main() {
 
 	client := common.NewClient(clientConfig, shutdownChan)
 
-	err = sendBets(client)
+	err = sendBets(client, &clientConfig)
 	if err != nil {
 		log.Errorf("%s", err)
 		client.Shutdown()
@@ -116,10 +117,24 @@ func main() {
 	client.Shutdown()
 }
 
-func sendBets(client *common.Client) error {
+func sendBets(client *common.Client, clientConfig *common.ClientConfig) error {
 	bet, err := common.GetBetFromEnv()
+	// If there is an error reading the bet from the environment, try to read the bets from the file
 	if err != nil {
-		return err
+		betsReader, err := common.GetBetsFromFile(clientConfig.ID, clientConfig.BatchSize)
+
+		defer func() {
+			if err := betsReader.Close(); err != nil {
+				log.Errorf("action: close_bets_file | result: error | error: %s", err)
+			}
+		}()
+
+		if err != nil {
+			log.Infof("action: get_bets_from_file | result: error | error: %s", err)
+			return err
+		}
+		return client.SendBetsInBatches(betsReader)
+	} else {
+		return client.SendBets([]model.Bet{bet})
 	}
-	return client.SendBets([]model.Bet{bet})
 }

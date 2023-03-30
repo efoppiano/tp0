@@ -6,6 +6,12 @@ from common.utils import Bet
 
 from common.errors import InvalidPacketTypeError
 
+from common.packets.store_batch import STORE_BATCH_PACKET_TYPE
+
+from common.packets.store_batch import StoreBatch
+
+from typing import List
+
 MAX_PACKET_SIZE = 8192
 
 
@@ -27,6 +33,18 @@ class PacketFactory:
         return StoreBet.parse_bet(data)
 
     @staticmethod
+    def parse_store_batch_packet(data: bytes) -> List[Bet]:
+        """
+        Receives a raw packet (result of a PacketFactory.read_raw_packet call) and parses
+        it into a list of Bet objects.
+        If the packet is not a StoreBatch packet, raises an InvalidPacketTypeError.
+        """
+        if not PacketFactory.is_for_store_batch(data):
+            raise InvalidPacketTypeError("Invalid packet type in StoreBatch packet (expected 2).")
+        data = remove_packet_type(data)
+        return StoreBatch.parse_batch(data)
+
+    @staticmethod
     def read_raw_packet(socket: SocketWrapper) -> bytes:
         """
         Read raw packet from client socket.
@@ -41,6 +59,10 @@ class PacketFactory:
     @staticmethod
     def is_for_store_bet(data: bytes) -> bool:
         return PacketFactory.__check_packet_type(data, STORE_BET_PACKET_TYPE)
+
+    @staticmethod
+    def is_for_store_batch(data: bytes) -> bool:
+        return PacketFactory.__check_packet_type(data, STORE_BATCH_PACKET_TYPE)
 
     @staticmethod
     def __check_packet_type(data: bytes, expected_type: str) -> bool:
