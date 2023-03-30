@@ -19,6 +19,9 @@
 Los clientes se configuran en el archivo [client/config.yaml](./client/config.yaml).
 
 - `server.address`: Dirección y puerto del servidor al cual se conecta el cliente.
+
+- `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch. 
+
 - `log.level`: Nivel de log. Puede ser `debug`, `info`, `warn`, `error` o `fatal`.
 
 ### Configuración de los servidores
@@ -49,13 +52,24 @@ El cliente debe esperar recibir un paquete `StoreResponse` antes de enviar cualq
 - Formato: `StoreBet:agencia;nombre;apellido;documento;nacimiento;numero\n`
 - Ejemplo: `StoreBet:1;Juan;Perez;12345678;1980-01-01;1234\n`
 
+#### StoreBatch
+
+Es enviado por el cliente al servidor para almacenar un lote de apuestas.
+
+El cliente debe esperar recibir un paquete `StoreResponse` antes de enviar cualquier otro paquete.
+
+Cada apuesta se separa con un carácter `:`.
+
+- Formato: `StoreBatch:agencia;nombre;apellido;documento;nacimiento;numero:...:nombre;apellido;documento;nacimiento;numero\n`
+- Ejemplo: `StoreBatch:1;Juan;Perez;12345678;1980-01-01;5423:Maria;Gomez;87654321;1999-10-25;1234\n`
+
 #### StoreResponse
 
-Es enviado por el servidor al cliente para responder a un paquete `StoreBet`.
+Es enviado por el servidor al cliente para responder a un paquete `StoreBet` o `StoreBatch`.
 
 - Formato: `StoreResponse:status\n`
 - Ejemplo: `StoreResponse:0\n`
 
-- status == 0: La apuesta se almacenó correctamente.
-- status == 1: Hubo un error al almacenar la apuesta.
+- status == 0: La o las apuestas se almacenaron correctamente.
+- status == 1: Hubo un error al almacenar la o las apuestas.
 
