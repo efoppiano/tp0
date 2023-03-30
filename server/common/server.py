@@ -17,6 +17,8 @@ from common.utils import load_bets, has_won
 
 from common.ipc.FLock import FLock
 
+from common.fd_check import assert_all_fds_are_closed
+
 BET_ENDED_MSG = b'bet_ended'
 BETS_CSV_LOCK_NAME = "bets.csv.lock"
 
@@ -254,5 +256,7 @@ class Server:
 
         for (client_sock, _) in self._waiting_for_response:
             client_sock.close()
+
+        assert_all_fds_are_closed()
         logging.info("action: shutdown | result: success")
 
