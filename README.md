@@ -121,6 +121,7 @@ Ejecutar:
 
 Ejecutar:
 
+    $> mv .env.example .env
     $> make docker-compose-up
     $> docker compose -f docker-compose-dev.yaml logs | grep sorteo
     $> docker compose -f docker-compose-dev.yaml logs | grep consulta_ganadores
