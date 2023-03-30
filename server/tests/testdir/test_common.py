@@ -54,6 +54,3 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(b1.birthdate, b2.birthdate)
         self.assertEqual(b1.number, b2.number)
 
-if __name__ == '__main__':
-    unittest.main()
-
