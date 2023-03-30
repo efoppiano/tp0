@@ -95,7 +95,7 @@ func (c *Client) ReceiveBetResponse() error {
 		log.Errorf("action: receive_bet_response | result: fail | client_id: %v",
 			c.config.ID,
 		)
-		return err
+		return errors.New("StoreResponse status is an error")
 	}
 	log.Infof("action: receive_bet_response | result: success | client_id: %v",
 		c.config.ID,
