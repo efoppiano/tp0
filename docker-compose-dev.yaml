@@ -15,7 +15,7 @@ services:
       - ./server/config.ini:/config.ini:ro
       - ./server/shared-volume:/shared-volume
     deploy:
-      replicas: 5
+      replicas: 8
 
   client1:
     container_name: client1
@@ -91,18 +91,6 @@ services:
     volumes:
       - ./client/config.yaml:/config.yaml:ro
       - .data:/data:ro
-
-  netcat:
-    container_name: netcat
-    image: alpine:latest
-    stdin_open: true
-    tty: true
-    profiles:
-      - testing
-    networks:
-      - testing_net
-    depends_on:
-      - server
 
 networks:
   testing_net:

@@ -38,7 +38,7 @@ def get_compose_client_part(client_id):
     depends_on:
       - server    
     volumes:
-      - ./client/config.yaml:/config.yaml
+      - ./client/config.yaml:/config.yaml:ro
       - .data:/data:ro
 """.format(client_id=client_id)
 
