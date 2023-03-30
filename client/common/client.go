@@ -121,6 +121,9 @@ func (c *Client) SendBets(bets []model.Bet) error {
 		if err != nil {
 			return err
 		}
+		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
+			bet.Document,
+			bet.Number)
 		err = c.conn.Close()
 		if err != nil {
 			return err
