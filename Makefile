@@ -17,6 +17,10 @@ deps:
 	go mod tidy
 	go mod vendor
 
+cleanup:
+	rm -rf server/shared-volume
+	mkdir -p server/shared-volume/locks
+
 build: deps
 	GOOS=linux go build -o bin/client github.com/7574-sistemas-distribuidos/docker-compose-init/client
 .PHONY: build
@@ -31,7 +35,7 @@ docker-image:
 	# docker rmi `docker images --filter label=intermediateStageToBeDeleted=true -q`
 .PHONY: docker-image
 
-docker-compose-up:
+docker-compose-up: cleanup
 	if [ $(REBUILD) -eq 1 ]; then \
 		make docker-image; \
 	fi
@@ -43,7 +47,7 @@ docker-compose-up:
 	fi
 .PHONY: docker-compose-up
 
-docker-compose-up-testing:
+docker-compose-up-testing: cleanup
 	TESTING=1 make docker-compose-up
 .PHONY: docker-compose-up-testing
 
