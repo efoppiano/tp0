@@ -38,14 +38,6 @@ func InitConfig() (*viper.Viper, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = v.BindEnv("loop", "period")
-	if err != nil {
-		return nil, err
-	}
-	err = v.BindEnv("loop", "lapse")
-	if err != nil {
-		return nil, err
-	}
 	err = v.BindEnv("log", "level")
 	if err != nil {
 		return nil, err
