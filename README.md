@@ -172,8 +172,8 @@ El cliente debe esperar recibir un paquete `StoreResponse` antes de enviar cualq
 
 Cada apuesta se separa con un carácter `:`.
 
-- Formato: `StoreBatch:agencia;nombre;apellido;documento;nacimiento;numero:...:nombre;apellido;documento;nacimiento;numero\n`
-- Ejemplo: `StoreBatch:1;Juan;Perez;12345678;1980-01-01;5423:Maria;Gomez;87654321;1999-10-25;1234\n`
+- Formato (payload): `StoreBatch:agencia;nombre;apellido;documento;nacimiento;numero:...:nombre;apellido;documento;nacimiento;numero`
+- Ejemplo: `StoreBatch:1;Juan;Perez;12345678;1980-01-01;5423:Maria;Gomez;87654321;1999-10-25;1234`
 
 #### StoreResponse
 
