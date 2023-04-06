@@ -51,17 +51,62 @@ services:
     volumes:
       - ./client/config.yaml:/config.yaml
 
-  netcat:
-    container_name: netcat
-    image: alpine:latest
-    stdin_open: true
-    tty: true
-    profiles:
-      - testing
+  client3:
+    container_name: client3
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=3
+      - CLI_LOG_LEVEL=DEBUG
+      - NOMBRE=María
+      - APELLIDO=González
+      - DOCUMENTO=38234211
+      - NACIMIENTO=1995-08-12
+      - NUMERO=5678
     networks:
       - testing_net
     depends_on:
       - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+
+  client4:
+    container_name: client4
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=4
+      - CLI_LOG_LEVEL=DEBUG
+      - NOMBRE=Carlos
+      - APELLIDO=Martínez
+      - DOCUMENTO=30984567
+      - NACIMIENTO=1988-02-28
+      - NUMERO=9101
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+
+  client5:
+    container_name: client5
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=5
+      - CLI_LOG_LEVEL=DEBUG
+      - NOMBRE=Ana
+      - APELLIDO=Sánchez
+      - DOCUMENTO=45783126
+      - NACIMIENTO=2003-11-15
+      - NUMERO=2468
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
 
 networks:
   testing_net:
