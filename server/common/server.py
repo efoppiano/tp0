@@ -21,7 +21,6 @@ class Server:
         self._config = config
 
         # Initialize server socket
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__set_up_tcp_socket()
         self._client_sock = None
 

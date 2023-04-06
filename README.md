@@ -130,7 +130,25 @@ espera.
 
 ## Protocolo de comunicación cliente-servidor
 
-Todos los paquetes se codifican en formato utf-8 y finalizan con un salto de línea `\n`.
+### Tamaño del paquete
+
+Los primeros 2 bytes de cada paquete indican el tamaño del paquete en bytes, sin contar estos 2 bytes.
+Por lo tanto, dicho tamaño debe ser menor o igual a 8190 (8 kB - 2 B).
+
+El tamaño se codifica en formato **big-endian**.
+
+| Bytes                     | Contenido     |
+|---------------------------|---------------|
+| 0 ... 1                   | Packet Length |
+| 2 ... (Packet Length + 1) | Payload       |
+
+
+### Codificación de los paquetes
+
+El resto del paquete se codifica en formato utf-8.
+
+
+### Tipo de paquete
 
 El primer segmento de cada paquete es el tipo de paquete, y se separa del resto del paquete con un
 carácter `:`.
@@ -143,8 +161,8 @@ Es enviado por el cliente al servidor para almacenar una apuesta individual.
 
 El cliente debe esperar recibir un paquete `StoreResponse` antes de enviar cualquier otro paquete.
 
-- Formato: `StoreBet:agencia;nombre;apellido;documento;nacimiento;numero\n`
-- Ejemplo: `StoreBet:1;Juan;Perez;12345678;1980-01-01;1234\n`
+- Formato (payload): `StoreBet:agencia;nombre;apellido;documento;nacimiento;numero`
+- Ejemplo: `StoreBet:1;Juan;Perez;12345678;1980-01-01;1234`
 
 #### StoreBatch
 
@@ -161,8 +179,8 @@ Cada apuesta se separa con un carácter `:`.
 
 Es enviado por el servidor al cliente para responder a un paquete `StoreBet` o `StoreBatch`.
 
-- Formato: `StoreResponse:status\n`
-- Ejemplo: `StoreResponse:0\n`
+- Formato (payload): `StoreResponse:status`
+- Ejemplo: `StoreResponse:0`
 
 - status == 0: La o las apuestas se almacenaron correctamente.
 - status == 1: Hubo un error al almacenar la o las apuestas.

@@ -16,6 +16,8 @@ class StoreResponse:
         msg.extend(bytes(STORE_RESPONSE_PACKET_TYPE, "utf-8"))
         msg.extend(b':')
         msg.extend(str(self.status).encode("utf-8"))
-        msg.extend(b'\n')
+
+        msg = len(msg).to_bytes(2, byteorder='big') + msg
+
         return bytes(msg)
 

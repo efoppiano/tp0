@@ -11,8 +11,10 @@ from common.packets.store_batch import STORE_BATCH_PACKET_TYPE
 from common.packets.store_batch import StoreBatch
 
 from typing import List
+from common.errors import ProtocolViolation
 
 MAX_PACKET_SIZE = 8192
+PACKET_LENGTH_FIELD_SIZE = 2
 
 
 def remove_packet_type(data: bytes) -> bytes:
@@ -49,12 +51,16 @@ class PacketFactory:
         """
         Read raw packet from client socket.
         """
-        data = socket.recv_until_with_max(b'\n', MAX_PACKET_SIZE)
+        length = int.from_bytes(socket.recv_exact(2), byteorder='big')
+        if length > MAX_PACKET_SIZE - PACKET_LENGTH_FIELD_SIZE:
+            raise ProtocolViolation("Packet size exceeds maximum packet size.")
+
+        data = socket.recv_exact(length)
         addr = socket.getpeername()
 
         logging.info(f'action: read_raw_packet | result: success | ip: {addr[0]} | msg: {data}')
 
-        return data.rstrip(b'\n')
+        return data
 
     @staticmethod
     def is_for_store_bet(data: bytes) -> bool:
