@@ -34,6 +34,5 @@ func (packet *StoreBatchPacket) Encode() ([]byte, error) {
 		}
 		bytes = append(bytes, encodedBet...)
 	}
-	bytes = append(bytes, '\n')
-	return bytes, nil
+	return AppendLengthToPacket(bytes)
 }
