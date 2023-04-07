@@ -154,7 +154,7 @@ class Server:
         client_sock.send_all(winners_packet.to_bytes())
         logging.info(f'action: send_winners | result: success | agency: {agency} | winners: {len(winners_of_agency)}')
 
-    def __handle_winners_request(self, client_sock: SocketWrapper, data: bytes) -> bool:
+    def __handle_winners_request(self, client_sock: SocketWrapper, data: bytes):
         """
         Handle winners request from an agency
         If all agencies have closed, send winners to agency immediately, returning True
