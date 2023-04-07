@@ -3,21 +3,40 @@
 
 ## Tabla de contenidos
 
-* [Enunciado](#enunciado)
-* [Ejecución de los ejercicios](#ejecución-de-los-ejercicios)
-  * [Ejercicio 1](#ejercicio-1)
-  * [Ejercicio 1.1](#ejercicio-11)
-  * [Ejercicio 2](#ejercicio-2)
-  * [Ejercicio 3](#ejercicio-3)
-  * [Ejercicio 4](#ejercicio-4)
-  * [Ejercicio 5](#ejercicio-5)
-  * [Ejercicio 6](#ejercicio-6)
-  * [Ejercicio 7](#ejercicio-7)
-  * [Ejercicio 8](#ejercicio-8)
-* [Configuración](#configuración)
-  * [Variables de entorno](#variables-de-entorno)
-  * [Configuración de los clientes](#configuración-de-los-clientes)
-  * [Configuración de los servidores](#configuración-de-los-servidores)
+- [TP0 - Sistemas Distribuidos I](#tp0---sistemas-distribuidos-i)
+  - [Tabla de contenidos](#tabla-de-contenidos)
+  - [Enunciado](#enunciado)
+  - [Ejecución de los ejercicios](#ejecución-de-los-ejercicios)
+    - [Ejercicio 1](#ejercicio-1)
+    - [Ejercicio 1.1](#ejercicio-11)
+    - [Ejercicio 2](#ejercicio-2)
+    - [Ejercicio 3](#ejercicio-3)
+    - [Ejercicio 4](#ejercicio-4)
+    - [Ejercicio 5](#ejercicio-5)
+    - [Ejercicio 6](#ejercicio-6)
+    - [Ejercicio 7](#ejercicio-7)
+    - [Ejercicio 8](#ejercicio-8)
+  - [Configuración](#configuración)
+    - [Variables de entorno](#variables-de-entorno)
+    - [Configuración de los clientes](#configuración-de-los-clientes)
+      - [Valor máximo de `batch_size`](#valor-máximo-de-batch_size)
+    - [Configuración de los servidores](#configuración-de-los-servidores)
+  - [Protocolo de comunicación cliente-servidor](#protocolo-de-comunicación-cliente-servidor)
+    - [Tamaño del paquete](#tamaño-del-paquete)
+    - [Codificación de los paquetes](#codificación-de-los-paquetes)
+    - [Tipo de paquete](#tipo-de-paquete)
+    - [Paquetes](#paquetes)
+      - [StoreBet](#storebet)
+      - [StoreBatch](#storebatch)
+      - [StoreResponse](#storeresponse)
+      - [AgencyCLose](#agencyclose)
+      - [WinnersRequest](#winnersrequest)
+      - [WinnersResponse](#winnersresponse)
+      - [NotReadyResponse](#notreadyresponse)
+  - [Características de la Arquitectura del Servidor](#características-de-la-arquitectura-del-servidor)
+    - [Comunicación y sincronización entre servidores](#comunicación-y-sincronización-entre-servidores)
+    - [Archivos compartidos](#archivos-compartidos)
+    - [Socket UDP](#socket-udp)
 
 ## Enunciado
 [Link al enunciado](enunciado.md)
@@ -158,9 +177,42 @@ Los clientes se configuran en el archivo [client/config.yaml](./client/config.ya
 - `server.address`: Dirección y puerto del servidor al cual se conecta el cliente. Debe ser igual a
 `SERVER_NAME:SERVER_PORT` definido en el archivo `.env`.
 
-- `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch. 
+- `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch.
+Debe ser menor o igual a 63.
+
+- `retry_sleep`: Tiempo unitario de espera entre reintentos de obtención de ganadores.
+Luego del primer intento, se espera `retry_sleep`, luego `retry_sleep * 2`, luego `retry_sleep * 4`, etc.
+
+- `retry_sleep_max`: Tiempo máximo de espera entre reintentos de obtención de ganadores.
+Si el tiempo de espera entre reintentos supera este valor, se espera `retry_sleep_max`.
 
 - `log.level`: Nivel de log. Puede ser `debug`, `info`, `warn`, `error` o `fatal`.
+
+#### Valor máximo de `batch_size`
+
+Con el objetivo de definir con exactitud el tamaño máximo de un paquete, se limitó la longitud
+máxima de ciertos campos de la apuesta. Estos son:
+
+- Nombre: 50 bytes
+- Apellido: 50 bytes
+- Documento: 10 bytes
+- Fecha de nacimiento: 10 bytes
+- Número: 4 bytes
+
+Por lo tanto, el tamaño máximo de una apuesta, considerando los 5 separadores de campos, es:
+
+    50 + 50 + 10 + 10 + 4 + 5 = 129 bytes
+
+La última apuesta posee un caracter delimitador menos, pero esto no afecta al resultado final, y no
+se considera en el cálculo por simplicidad.
+
+Como el tamaño máximo del payload de un paquete es 8190 bytes (8192 menos 2 bytes para el campo de tamaño del paquete,
+ver [Protocolo de comunicación cliente-servidor](#protocolo-de-comunicación-cliente-servidor)),
+y que además se debe considerar el tamaño del campo de tipo de paquete, y el número de agencia, se
+obtiene que el valor máximo de `batch_size` es:
+
+    floor((8192 - 2 - 10 - 3)/129) = 63
+
 
 ### Configuración de los servidores
 
@@ -187,7 +239,25 @@ se cierren para realizar el sorteo. Debe coincidir con la variable `CLIENTS` def
 
 ## Protocolo de comunicación cliente-servidor
 
-Todos los paquetes se codifican en formato utf-8 y finalizan con un salto de línea `\n`.
+### Tamaño del paquete
+
+Los primeros 2 bytes de cada paquete indican el tamaño del paquete en bytes, sin contar estos 2 bytes.
+Por lo tanto, dicho tamaño debe ser menor o igual a 8190 (8 kB - 2 B).
+
+El tamaño se codifica en formato **big-endian**.
+
+| Bytes                     | Contenido     |
+|---------------------------|---------------|
+| 0 ... 1                   | Packet Length |
+| 2 ... (Packet Length + 1) | Payload       |
+
+
+### Codificación de los paquetes
+
+El resto del paquete se codifica en formato utf-8.
+
+
+### Tipo de paquete
 
 El primer segmento de cada paquete es el tipo de paquete, y se separa del resto del paquete con un
 carácter `:`.
@@ -200,8 +270,8 @@ Es enviado por el cliente al servidor para almacenar una apuesta individual.
 
 El cliente debe esperar recibir un paquete `StoreResponse` antes de enviar cualquier otro paquete.
 
-- Formato: `StoreBet:agencia;nombre;apellido;documento;nacimiento;numero\n`
-- Ejemplo: `StoreBet:1;Juan;Perez;12345678;1980-01-01;1234\n`
+- Formato (payload): `StoreBet:agencia;nombre;apellido;documento;nacimiento;numero`
+- Ejemplo: `StoreBet:1;Juan;Perez;12345678;1980-01-01;1234`
 
 #### StoreBatch
 
@@ -211,15 +281,15 @@ El cliente debe esperar recibir un paquete `StoreResponse` antes de enviar cualq
 
 Cada apuesta se separa con un carácter `:`.
 
-- Formato: `StoreBatch:agencia;nombre;apellido;documento;nacimiento;numero:...:nombre;apellido;documento;nacimiento;numero\n`
-- Ejemplo: `StoreBatch:1;Juan;Perez;12345678;1980-01-01;5423:Maria;Gomez;87654321;1999-10-25;1234\n`
+- Formato (payload): `StoreBatch:agencia;nombre;apellido;documento;nacimiento;numero:...:nombre;apellido;documento;nacimiento;numero`
+- Ejemplo: `StoreBatch:1;Juan;Perez;12345678;1980-01-01;5423:Maria;Gomez;87654321;1999-10-25;1234`
 
 #### StoreResponse
 
 Es enviado por el servidor al cliente para responder a un paquete `StoreBet` o `StoreBatch`.
 
-- Formato: `StoreResponse:status\n`
-- Ejemplo: `StoreResponse:0\n`
+- Formato (payload): `StoreResponse:status`
+- Ejemplo: `StoreResponse:0`
 
 - status == 0: La o las apuestas se almacenaron correctamente.
 - status == 1: Hubo un error al almacenar la o las apuestas.
@@ -232,28 +302,39 @@ Una vez enviado, la agencia no puede enviar más apuestas.
 El servidor debe esperar recibir un paquete `AgencyClose` de todas las agencias antes de realizar el
 sorteo.
 
-- Formato: `AgencyClose:agencia\n`
-- Ejemplo: `AgencyClose:1\n`
+- Formato (payload): `AgencyClose:agencia`
+- Ejemplo: `AgencyClose:1`
 
 #### WinnersRequest
 
 Es enviado por el cliente al servidor para solicitar los ganadores del sorteo correspondiente a la
 agencia especificada.
 
-Si el sorteo aún no se realizó, el servidor debe esperar a que todas las agencias cierren para
-responder este paquete.
+Si el sorteo ya se realizó, el servidor responde con un paquete `WinnersResponse`. En caso contrario,
+el servidor responde con un paquete `NotReadyResponse`.
 
-- Formato: `WinnersRequest:agencia\n`
-- Ejemplo: `WinnersRequest:1\n`
+- Formato (payload): `WinnersRequest:agencia`
+- Ejemplo: `WinnersRequest:1`
 
 #### WinnersResponse
 
-Es enviado por el servidor al cliente para responder a un paquete `WinnersRequest`.
+Es enviado por el servidor al cliente para responder a un paquete `WinnersRequest` cuando el sorteo
+ya se realizó.
 
 Contiene los documentos de los ganadores del sorteo correspondiente a la agencia solicitada.
 
-- Formato: `WinnersResponse:documento1;documento2;...;documentoN\n`
-- Ejemplo: `WinnersResponse:34054835;38955439\n`
+- Formato (payload): `WinnersResponse:documento1;documento2;...;documentoN`
+- Ejemplo: `WinnersResponse:34054835;38955439`
+
+#### NotReadyResponse
+
+Es enviado por el servidor al cliente para responder a un paquete `WinnersRequest` cuando aún hay
+agencias que no cerraron.
+
+- Formato (payload): `NotReadyResponse:`
+
+Nota: El paquete `NotReadyResponse` no contiene ningún dato adicional, pero el caracter `:` es
+necesario para mantener la consistencia del protocolo.
 
 ## Características de la Arquitectura del Servidor
 
@@ -285,6 +366,3 @@ Contiene los documentos de los ganadores del sorteo correspondiente a la agencia
 
 ![diagrama_seq](resources/diagrama_seq.png)
 Diagrama de secuencia de la comunicación entre los clientes y los servidores.
-
-
-

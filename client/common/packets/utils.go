@@ -2,15 +2,15 @@ package packets
 
 import (
 	"bufio"
-	"fmt"
+	"encoding/binary"
+	"io"
 	"net"
 )
 
 func WriteAll(conn *net.Conn, bytes []byte) error {
 	bytesWritten := 0
 	for bytesWritten < len(bytes) {
-		n, err := fmt.Fprintf(*conn, string(bytes[bytesWritten:]))
-
+		n, err := (*conn).Write(bytes[bytesWritten:])
 		if err != nil {
 			return err
 		}
@@ -21,35 +21,9 @@ func WriteAll(conn *net.Conn, bytes []byte) error {
 
 func ReadExact(reader *bufio.Reader, length int) ([]byte, error) {
 	buf := make([]byte, length)
-	bytesRead := 0
-	for bytesRead < length {
-		n, err := (*reader).Read(buf[bytesRead:])
-		if err != nil {
-			return buf, err
-		}
-		bytesRead += n
-	}
-	return buf, nil
-}
-
-func ReadUntilWithMax(reader *bufio.Reader, delimiter byte, maxBytes int) ([]byte, error) {
-	buf := make([]byte, 0)
-	bytesRead := 0
-	for {
-		if bytesRead >= maxBytes {
-			return buf, PacketTooBigError{
-				MaxSize: maxBytes,
-			}
-		}
-		b, err := (*reader).ReadByte()
-		if err != nil {
-			return buf, err
-		}
-		bytesRead += 1
-		if b == delimiter {
-			break
-		}
-		buf = append(buf, b)
+	_, err := io.ReadFull(reader, buf)
+	if err != nil {
+		return nil, err
 	}
 	return buf, nil
 }
@@ -62,4 +36,19 @@ func AppendWithDelimiter(bytes []byte, delimiter string, elements ...string) []b
 	bytes = append(bytes, []byte(elements[len(elements)-1])...)
 
 	return bytes
+}
+
+func AppendLengthToPacket(bytes []byte) ([]byte, error) {
+	length := len(bytes)
+	if length > MaxPacketSize-PacketLengthFieldSize {
+		return bytes, PacketTooBigError{
+			MaxSize: MaxPacketSize,
+		}
+	}
+
+	lengthBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(lengthBytes, uint16(length))
+	bytes = append(lengthBytes, bytes...)
+
+	return bytes, nil
 }

@@ -1,7 +1,5 @@
 import socket
 
-from common.errors import PacketTooLargeError
-
 
 class SocketWrapper:
     """
@@ -23,20 +21,11 @@ class SocketWrapper:
             data += self._base.recv(num_bytes - len(data))
         return data
 
-    def recv_until(self, delimiter: bytes):
-        data = b''
-        while not data.endswith(delimiter):
-            data += self._base.recv(1)
-        return data
+    def send(self, data, flags=0):
+        raise Exception("Use send_all instead of send to prevent short writes.")
 
-    def recv_until_with_max(self, delimiter: bytes, max_bytes: int):
-        data = b''
-        while not data.endswith(delimiter) and len(data) < max_bytes:
-            data += self._base.recv(1)
-
-        if len(data) == max_bytes and not data.endswith(delimiter):
-            raise PacketTooLargeError()
-        return data
+    def recv(self, num_bytes: int):
+        raise Exception("Use recv_exact instead of recv to prevent short reads.")
 
     def __getattr__(self, name):
         return getattr(self._base, name)

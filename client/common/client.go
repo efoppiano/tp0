@@ -5,8 +5,10 @@ import (
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common/model"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common/packets"
 	log "github.com/sirupsen/logrus"
+	"math"
 	"net"
 	"os"
+	"time"
 )
 
 // ClientConfig Configuration used by the client
@@ -14,6 +16,8 @@ type ClientConfig struct {
 	ID            string
 	ServerAddress string
 	BatchSize     int
+	RetrySleep    time.Duration
+	RetrySleepMax time.Duration
 }
 
 // Client Entity that encapsulates how
@@ -257,39 +261,74 @@ func (c *Client) CloseAgency() {
 }
 
 func (c *Client) GetWinners() ([]string, error) {
-	err := c.createClientSocket()
-	if err != nil {
-		return nil, err
+	retries := 0
+	for {
+		err := c.createClientSocket()
+		if err != nil {
+			return nil, err
+		}
+		log.Infof("action: get_winners | result: in_progress | client_id: %v",
+			c.config.ID,
+		)
+
+		packet := packets.NewWinnersRequestPacket(c.config.ID)
+		bytes, err := packet.Encode()
+		if err != nil {
+			log.Errorf("action: get_winners | result: fail | client_id: %v | error: %v",
+				c.config.ID,
+				err,
+			)
+			return nil, err
+		}
+		err = packets.WriteAll(&c.conn, bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		rawPacket, err := packets.ReadRawPacket(&c.conn)
+		if err != nil {
+			return nil, err
+		}
+		if packets.IsForNotReadyResponse(rawPacket) {
+			log.Infof("action: get_winners | result: not_ready | client_id: %v",
+				c.config.ID,
+			)
+			err = c.conn.Close()
+			if err != nil {
+				return nil, err
+			}
+			c.conn = nil
+			waitTime := c.getWaitChan(retries)
+			retries++
+			select {
+			case <-c.shutdownChan:
+				return nil, ErrShutdown
+			case <-waitTime:
+				continue
+			}
+		} else {
+			response, err := packets.DecodeWinnersResponsePacket(rawPacket)
+			if err != nil {
+				log.Errorf("action: receive_packet | result: fail | client_id: %v | error: %v",
+					c.config.ID,
+					err,
+				)
+				return nil, err
+			}
+			return response.Documents, nil
+		}
 	}
-	log.Infof("action: get_winners | result: in_progress | client_id: %v",
+}
+
+func (c *Client) getWaitChan(retries int) <-chan time.Time {
+	waitTime := c.config.RetrySleep * time.Duration(math.Pow(2, float64(retries)))
+	if waitTime > c.config.RetrySleepMax {
+		waitTime = c.config.RetrySleepMax
+	}
+	log.Infof("action: get_wait_chan | result: success | client_id: %v | wait_time: %v",
 		c.config.ID,
+		waitTime,
 	)
 
-	packet := packets.NewWinnersRequestPacket(c.config.ID)
-	bytes, err := packet.Encode()
-	if err != nil {
-		log.Errorf("action: get_winners | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
-		return nil, err
-	}
-	err = packets.WriteAll(&c.conn, bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	rawPacket, err := packets.ReadRawPacket(&c.conn)
-	if err != nil {
-		return nil, err
-	}
-	response, err := packets.DecodeWinnersResponsePacket(rawPacket)
-	if err != nil {
-		log.Errorf("action: receive_packet | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
-		return nil, err
-	}
-	return response.Documents, nil
+	return time.After(waitTime)
 }

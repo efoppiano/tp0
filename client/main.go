@@ -101,6 +101,8 @@ func main() {
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
 		BatchSize:     v.GetInt("batch_size"),
+		RetrySleep:    v.GetDuration("retry_sleep"),
+		RetrySleepMax: v.GetDuration("retry_sleep_max"),
 	}
 
 	shutdownChan := make(chan os.Signal, 1)
@@ -131,7 +133,7 @@ func sendBets(client *common.Client, clientConfig *common.ClientConfig) error {
 	bet, err := common.GetBetFromEnv()
 	// If there is an error reading the bet from the environment, try to read the bets from the file
 	if err != nil {
-		betsReader, err := common.GetBetsFromFile(clientConfig.ID, clientConfig.BatchSize)
+		betsReader, err := common.CreateBetsReaderFromFile(clientConfig.ID, clientConfig.BatchSize)
 
 		defer func() {
 			if err := betsReader.Close(); err != nil {

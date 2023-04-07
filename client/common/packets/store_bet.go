@@ -42,9 +42,8 @@ func (packet *StoreBetPacket) Encode() ([]byte, error) {
 		packet.BirthDate.Format("2006-01-02"),
 		strconv.Itoa(int(packet.Number)),
 	)
-	bytes = append(bytes, '\n')
 	log.Infof("action: encode_packet | result: success | client_id: %v | packet: %v", packet.Agency, string(bytes))
-	return bytes, nil
+	return AppendLengthToPacket(bytes)
 }
 
 func (packet *StoreBetPacket) EncodeForBatch() ([]byte, error) {
