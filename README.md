@@ -14,6 +14,14 @@
 * [Configuración](#configuración)
   * [Configuración de los clientes](#configuración-de-los-clientes)
   * [Configuración de los servidores](#configuración-de-los-servidores)
+* [Protocolo de comunicación cliente-servidor](#protocolo-de-comunicacin-cliente-servidor)
+  * [Tamaño del paquete](#tamaño-del-paquete)
+  * [Codificación de los paquetes](#codificación-de-los-paquetes)
+  * [Tipo de paquete](#tipo-de-paquete)
+  * [Paquetes](#paquetes)
+    * [StoreBet](#storebet)
+    * [StoreResponse](#storeresponse)
+
 
 ## Enunciado
 [Link al enunciado](enunciado.md)
