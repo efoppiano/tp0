@@ -99,7 +99,7 @@ class Server:
         elif PacketFactory.is_for_winners_request(data):
             return self.__handle_winners_request(client_sock, data)
         else:
-            raise ProtocolViolation("Invalid packet type.")
+            raise ProtocolViolation(f"Invalid packet type ({PacketFactory.get_packet_type(data)})")
 
     def __handle_store_bet(self, client_sock: SocketWrapper, data: bytes):
         try:

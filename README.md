@@ -123,9 +123,36 @@ Los clientes se configuran en el archivo [client/config.yaml](./client/config.ya
 
 - `server.address`: Dirección y puerto del servidor al cual se conecta el cliente.
 
-- `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch. 
+- `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch.
+Debe ser menor o igual a 63.
 
 - `log.level`: Nivel de log. Puede ser `debug`, `info`, `warn`, `error` o `fatal`.
+
+#### Valor máximo de `batch_size`
+
+Con el objetivo de definir con exactitud el tamaño máximo de un paquete, se limitó la longitud
+máxima de ciertos campos de la apuesta. Estos son:
+
+- Nombre: 50 bytes
+- Apellido: 50 bytes
+- Documento: 10 bytes
+- Fecha de nacimiento: 10 bytes
+- Número: 4 bytes
+
+Por lo tanto, el tamaño máximo de una apuesta, considerando los 5 separadores de campos, es:
+
+    50 + 50 + 10 + 10 + 4 + 5 = 129 bytes
+
+La última apuesta posee un caracter delimitador menos, pero esto no afecta al resultado final, y no
+se considera en el cálculo por simplicidad.
+
+Como el tamaño máximo del payload de un paquete es 8190 bytes (8192 menos 2 bytes para el campo de tamaño del paquete,
+ver [Protocolo de comunicación cliente-servidor](#protocolo-de-comunicación-cliente-servidor)),
+y que además se debe considerar el tamaño del campo de tipo de paquete, y el número de agencia, se
+obtiene que el valor máximo de `batch_size` es:
+
+    floor((8192 - 2 - 10 - 3)/129) = 63
+
 
 ### Configuración de los servidores
 
@@ -142,7 +169,25 @@ se cierren para realizar el sorteo.
 
 ## Protocolo de comunicación cliente-servidor
 
-Todos los paquetes se codifican en formato utf-8 y finalizan con un salto de línea `\n`.
+### Tamaño del paquete
+
+Los primeros 2 bytes de cada paquete indican el tamaño del paquete en bytes, sin contar estos 2 bytes.
+Por lo tanto, dicho tamaño debe ser menor o igual a 8190 (8 kB - 2 B).
+
+El tamaño se codifica en formato **big-endian**.
+
+| Bytes                     | Contenido     |
+|---------------------------|---------------|
+| 0 ... 1                   | Packet Length |
+| 2 ... (Packet Length + 1) | Payload       |
+
+
+### Codificación de los paquetes
+
+El resto del paquete se codifica en formato utf-8.
+
+
+### Tipo de paquete
 
 El primer segmento de cada paquete es el tipo de paquete, y se separa del resto del paquete con un
 carácter `:`.
@@ -155,8 +200,8 @@ Es enviado por el cliente al servidor para almacenar una apuesta individual.
 
 El cliente debe esperar recibir un paquete `StoreResponse` antes de enviar cualquier otro paquete.
 
-- Formato: `StoreBet:agencia;nombre;apellido;documento;nacimiento;numero\n`
-- Ejemplo: `StoreBet:1;Juan;Perez;12345678;1980-01-01;1234\n`
+- Formato (payload): `StoreBet:agencia;nombre;apellido;documento;nacimiento;numero`
+- Ejemplo: `StoreBet:1;Juan;Perez;12345678;1980-01-01;1234`
 
 #### StoreBatch
 
@@ -166,15 +211,15 @@ El cliente debe esperar recibir un paquete `StoreResponse` antes de enviar cualq
 
 Cada apuesta se separa con un carácter `:`.
 
-- Formato: `StoreBatch:agencia;nombre;apellido;documento;nacimiento;numero:...:nombre;apellido;documento;nacimiento;numero\n`
-- Ejemplo: `StoreBatch:1;Juan;Perez;12345678;1980-01-01;5423:Maria;Gomez;87654321;1999-10-25;1234\n`
+- Formato (payload): `StoreBatch:agencia;nombre;apellido;documento;nacimiento;numero:...:nombre;apellido;documento;nacimiento;numero`
+- Ejemplo: `StoreBatch:1;Juan;Perez;12345678;1980-01-01;5423:Maria;Gomez;87654321;1999-10-25;1234`
 
 #### StoreResponse
 
 Es enviado por el servidor al cliente para responder a un paquete `StoreBet` o `StoreBatch`.
 
-- Formato: `StoreResponse:status\n`
-- Ejemplo: `StoreResponse:0\n`
+- Formato (payload): `StoreResponse:status`
+- Ejemplo: `StoreResponse:0`
 
 - status == 0: La o las apuestas se almacenaron correctamente.
 - status == 1: Hubo un error al almacenar la o las apuestas.
