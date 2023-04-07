@@ -1,4 +1,4 @@
-from typing import Set
+from typing import Set, Union
 
 from common.errors import ProtocolViolation
 from common.packets.packet_factory import MAX_PACKET_SIZE, PACKET_LENGTH_FIELD_SIZE
@@ -7,7 +7,7 @@ WINNERS_RESPONSE_PACKET_TYPE = "WinnersResponse"
 
 
 class WinnersResponse:
-    def __init__(self, documents: Set[str]):
+    def __init__(self, documents: Union[Set[str], None]):
         self.documents = documents
 
     def to_bytes(self) -> bytes:

@@ -3,5 +3,7 @@ server:
   address: "server:12345"
 # bets per batch message
 batch_size: 63
+retry_sleep: "50ms"
+retry_sleep_max: "10s"
 log:
   level: "info"

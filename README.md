@@ -16,6 +16,10 @@
 * [Configuración](#configuración)
   * [Configuración de los clientes](#configuración-de-los-clientes)
   * [Configuración de los servidores](#configuración-de-los-servidores)
+* [Protocolo de comunicación cliente-servidor](#protocolo-de-comunicación-cliente-servidor)
+  * [Tamaño del paquete](#tamaño-del-paquete)
+  * [Codificación de los paquetes](#codificación-de-los-paquetes)
+  * [Tipo de paquete](#tipo-de-paquete)
 
 ## Enunciado
 [Link al enunciado](enunciado.md)
@@ -126,6 +130,12 @@ Los clientes se configuran en el archivo [client/config.yaml](./client/config.ya
 - `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch.
 Debe ser menor o igual a 63.
 
+- `retry_sleep`: Tiempo unitario de espera entre reintentos de obtención de ganadores.
+Luego del primer intento, se espera `retry_sleep`, luego `retry_sleep * 2`, luego `retry_sleep * 4`, etc.
+
+- `retry_sleep_max`: Tiempo máximo de espera entre reintentos de obtención de ganadores.
+Si el tiempo de espera entre reintentos supera este valor, se espera `retry_sleep_max`.
+
 - `log.level`: Nivel de log. Puede ser `debug`, `info`, `warn`, `error` o `fatal`.
 
 #### Valor máximo de `batch_size`
@@ -232,25 +242,36 @@ Una vez enviado, la agencia no puede enviar más apuestas.
 El servidor debe esperar recibir un paquete `AgencyClose` de todas las agencias antes de realizar el
 sorteo.
 
-- Formato: `AgencyClose:agencia\n`
-- Ejemplo: `AgencyClose:1\n`
+- Formato (payload): `AgencyClose:agencia`
+- Ejemplo: `AgencyClose:1`
 
 #### WinnersRequest
 
 Es enviado por el cliente al servidor para solicitar los ganadores del sorteo correspondiente a la
 agencia especificada.
 
-Si el sorteo aún no se realizó, el servidor debe esperar a que todas las agencias cierren para
-responder este paquete.
+Si el sorteo ya se realizó, el servidor responde con un paquete `WinnersResponse`. En caso contrario,
+el servidor responde con un paquete `NotReadyResponse`.
 
-- Formato: `WinnersRequest:agencia\n`
-- Ejemplo: `WinnersRequest:1\n`
+- Formato (payload): `WinnersRequest:agencia`
+- Ejemplo: `WinnersRequest:1`
 
 #### WinnersResponse
 
-Es enviado por el servidor al cliente para responder a un paquete `WinnersRequest`.
+Es enviado por el servidor al cliente para responder a un paquete `WinnersRequest` cuando el sorteo
+ya se realizó.
 
 Contiene los documentos de los ganadores del sorteo correspondiente a la agencia solicitada.
 
-- Formato: `WinnersResponse:documento1;documento2;...;documentoN\n`
-- Ejemplo: `WinnersResponse:34054835;38955439\n`
+- Formato (payload): `WinnersResponse:documento1;documento2;...;documentoN`
+- Ejemplo: `WinnersResponse:34054835;38955439`
+
+#### NotReadyResponse
+
+Es enviado por el servidor al cliente para responder a un paquete `WinnersRequest` cuando aún hay
+agencias que no cerraron.
+
+- Formato (payload): `NotReadyResponse:`
+
+Nota: El paquete `NotReadyResponse` no contiene ningún dato adicional, pero el caracter `:` es
+necesario para mantener la consistencia del protocolo.

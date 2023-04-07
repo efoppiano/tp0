@@ -10,6 +10,8 @@ import (
 const MaxPacketSize = 8192
 const PacketLengthFieldSize = 2
 
+const NotReadyResponsePacketType = "NotReadyResponse"
+
 func checkPacketType(data []byte, expected string) error {
 	packetType := strings.Split(string(data), ":")[0]
 	if packetType != expected {
@@ -85,4 +87,16 @@ func DecodeWinnersResponsePacket(data []byte) (WinnersResponsePacket, error) {
 	}
 
 	return packet, nil
+}
+
+func getPacketType(data []byte) string {
+	return strings.Split(string(data), ":")[0]
+}
+
+func IsForWinnersResponse(data []byte) bool {
+	return getPacketType(data) == WinnersResponsePacketType
+}
+
+func IsForNotReadyResponse(data []byte) bool {
+	return getPacketType(data) == NotReadyResponsePacketType
 }

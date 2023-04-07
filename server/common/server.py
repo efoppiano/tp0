@@ -14,6 +14,8 @@ from common.ipc.closed_agencies import ClosedAgencies
 from common.packets.winners_response import WinnersResponse
 from common.utils import load_bets, has_won
 
+from common.packets.not_ready_response import NotReadyResponse
+
 
 class ServerConfig:
     def __init__(self, logging_level, port, listen_backlog, agencies_amount):
@@ -28,7 +30,6 @@ class Server:
 
         self._closed_agencies = ClosedAgencies()
 
-        self._waiting_for_response = []
         # When the bet ends, this will contain a dictionary with the winners per agency.
         # The key will be the agency number and the value will be a list of the documents
         # of the winners.
@@ -70,18 +71,17 @@ class Server:
         self._client_sock = client_sock
         addr = client_sock.getpeername()
         try:
-            should_close = self.__handle_packet(client_sock)
-            if should_close:
-                client_sock.close()
-                self._client_sock = None
-                logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
+            self.__handle_packet(client_sock)
+            client_sock.close()
+            self._client_sock = None
+            logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
         except Exception as e:
             logging.error(f"action: receive_message | result: fail | ip: {addr[0]} | error: {e}")
             client_sock.close()
             self._client_sock = None
             logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
 
-    def __handle_packet(self, client_sock: SocketWrapper) -> bool:
+    def __handle_packet(self, client_sock: SocketWrapper):
         """
         Handles a packet received from a client.
         Returns True if the socket should be closed, False otherwise.
@@ -89,15 +89,12 @@ class Server:
         data = PacketFactory.read_raw_packet(client_sock)
         if PacketFactory.is_for_store_bet(data):
             self.__handle_store_bet(client_sock, data)
-            return True
         elif PacketFactory.is_for_store_batch(data):
             self.__handle_store_batch(client_sock, data)
-            return True
         elif PacketFactory.is_for_agency_close(data):
             self.__handle_agency_close(data)
-            return True
         elif PacketFactory.is_for_winners_request(data):
-            return self.__handle_winners_request(client_sock, data)
+            self.__handle_winners_request(client_sock, data)
         else:
             raise ProtocolViolation(f"Invalid packet type ({PacketFactory.get_packet_type(data)})")
 
@@ -137,9 +134,6 @@ class Server:
         logging.info(f'action: agency_close | result: in_progress | agency: {agency}')
         self._closed_agencies.add(int(agency))
         logging.info(f'action: agency_close | result: success | agency: {agency}')
-        if self.__bet_ended():
-            logging.info('action: sorteo | result: success')
-            self.__send_winners_to_waiting_agencies()
 
     def __populate_winners(self):
         logging.info('action: populate_winners | result: in_progress')
@@ -165,15 +159,6 @@ class Server:
         client_sock.send_all(winners_packet.to_bytes())
         logging.info(f'action: send_winners | result: success | agency: {agency} | winners: {len(winners_of_agency)}')
 
-    def __send_winners_to_waiting_agencies(self):
-        logging.info(
-            f'action: send_winners_to_waiting_agencies | result: in_progress | agencies: {len(self._waiting_for_response)}')
-        for (client_sock, agency) in self._waiting_for_response:
-            self.__send_winners(client_sock, agency)
-            client_sock.close()
-        logging.info(f'action: send_winners_to_waiting_agencies | result: success')
-        self._waiting_for_response = []
-
     def __handle_winners_request(self, client_sock: SocketWrapper, data: bytes) -> bool:
         """
         Handle winners request from an agency
@@ -186,12 +171,10 @@ class Server:
         if len(closed_agencies) != self._config.agencies_amount:
             logging.info(
                 f'action: send_winners | result: delayed | agency: {agency} | closed_agencies: {closed_agencies}')
-            self._waiting_for_response.append((client_sock, agency))
-            return False
+            client_sock.send_all(NotReadyResponse().to_bytes())
         else:
             logging.info(f'action: send_winners | result: in_progress | agency: {agency}')
             self.__send_winners(client_sock, agency)
-            return True
 
     def __accept_new_connection(self):
         """
@@ -216,7 +199,5 @@ class Server:
         if self._client_sock is not None:
             self._client_sock.close()
 
-        for (client_sock, _) in self._waiting_for_response:
-            client_sock.close()
         logging.info("action: shutdown | result: success")
 

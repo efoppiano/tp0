@@ -101,6 +101,8 @@ func main() {
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
 		BatchSize:     v.GetInt("batch_size"),
+		RetrySleep:    v.GetDuration("retry_sleep"),
+		RetrySleepMax: v.GetDuration("retry_sleep_max"),
 	}
 
 	shutdownChan := make(chan os.Signal, 1)
