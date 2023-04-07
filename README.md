@@ -114,9 +114,36 @@ Los clientes se configuran en el archivo [client/config.yaml](./client/config.ya
 
 - `server.address`: Dirección y puerto del servidor al cual se conecta el cliente.
 
-- `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch. 
+- `batch_size`: Cantidad de apuestas que se pueden enviar al mismo tiempo, en un único mensaje batch.
+Debe ser menor o igual a 63.
 
 - `log.level`: Nivel de log. Puede ser `debug`, `info`, `warn`, `error` o `fatal`.
+
+#### Valor máximo de `batch_size`
+
+Con el objetivo de definir con exactitud el tamaño máximo de un paquete, se limitó la longitud
+máxima de ciertos campos de la apuesta. Estos son:
+
+- Nombre: 50 bytes
+- Apellido: 50 bytes
+- Documento: 10 bytes
+- Fecha de nacimiento: 10 bytes
+- Número: 4 bytes
+
+Por lo tanto, el tamaño máximo de una apuesta, considerando los 5 separadores de campos, es:
+
+    50 + 50 + 10 + 10 + 4 + 5 = 129 bytes
+
+La última apuesta posee un caracter delimitador menos, pero esto no afecta al resultado final, y no
+se considera en el cálculo por simplicidad.
+
+Como el tamaño máximo del payload de un paquete es 8190 bytes (8192 menos 2 bytes para el campo de tamaño del paquete,
+ver [Protocolo de comunicación cliente-servidor](#protocolo-de-comunicación-cliente-servidor)),
+y que además se debe considerar el tamaño del campo de tipo de paquete, y el número de agencia, se
+obtiene que el valor máximo de `batch_size` es:
+
+    floor((8192 - 2 - 10 - 3)/129) = 63
+
 
 ### Configuración de los servidores
 

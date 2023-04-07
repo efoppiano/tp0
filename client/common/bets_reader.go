@@ -67,5 +67,5 @@ func getBetFromLine(line string) (model.Bet, error) {
 		return model.Bet{}, errors.New(fmt.Sprintf("Invalid bet number: %s", fields[4]))
 	}
 
-	return model.NewBet(firstName, lastName, document, birthdate, uint64(number)), nil
+	return model.NewBet(firstName, lastName, document, birthdate, uint64(number))
 }

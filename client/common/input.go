@@ -35,5 +35,5 @@ func GetBetFromEnv() (model.Bet, error) {
 		return model.Bet{}, err
 	}
 
-	return model.NewBet(firstName, lastName, document, birthdate, uint64(number)), nil
+	return model.NewBet(firstName, lastName, document, birthdate, uint64(number))
 }

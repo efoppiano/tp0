@@ -58,7 +58,7 @@ class PacketFactory:
         data = socket.recv_exact(length)
         addr = socket.getpeername()
 
-        logging.info(f'action: read_raw_packet | result: success | ip: {addr[0]} | msg: {data}')
+        logging.info(f'action: read_raw_packet | result: success | ip: {addr[0]} | length: {length} | msg: {data}')
 
         return data
 
@@ -72,5 +72,9 @@ class PacketFactory:
 
     @staticmethod
     def __check_packet_type(data: bytes, expected_type: str) -> bool:
-        packet_type = data[:data.find(b':')].decode("utf-8")
+        packet_type = PacketFactory.get_packet_type(data)
         return packet_type == expected_type
+
+    @staticmethod
+    def get_packet_type(data: bytes) -> str:
+        return data[:data.find(b':')].decode("utf-8")

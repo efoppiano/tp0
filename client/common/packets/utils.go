@@ -3,7 +3,6 @@ package packets
 import (
 	"bufio"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 )
@@ -11,8 +10,7 @@ import (
 func WriteAll(conn *net.Conn, bytes []byte) error {
 	bytesWritten := 0
 	for bytesWritten < len(bytes) {
-		n, err := fmt.Fprintf(*conn, string(bytes[bytesWritten:]))
-
+		n, err := (*conn).Write(bytes[bytesWritten:])
 		if err != nil {
 			return err
 		}
