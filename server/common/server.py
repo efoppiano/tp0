@@ -10,7 +10,6 @@ from common.errors import ProtocolViolation
 from common.packets.store_response import StoreResponse, STATUS_ERROR, STATUS_OK
 from common.utils import store_bets
 
-from common.ipc.closed_agencies import ClosedAgencies
 from common.packets.winners_response import WinnersResponse
 from common.utils import load_bets, has_won
 
@@ -28,7 +27,7 @@ class Server:
     def __init__(self, config: ServerConfig):
         self._config = config
 
-        self._closed_agencies = ClosedAgencies()
+        self._closed_agencies = set()
 
         # When the bet ends, this will contain a dictionary with the winners per agency.
         # The key will be the agency number and the value will be a list of the documents
@@ -46,7 +45,7 @@ class Server:
         self._server_socket.listen(self._config.listen_backlog)
 
     def __bet_ended(self) -> bool:
-        return len(self._closed_agencies.get_closed_agencies()) == self._config.agencies_amount
+        return len(self._closed_agencies) == self._config.agencies_amount
 
     def run(self):
         """
@@ -102,7 +101,7 @@ class Server:
         try:
             bet = PacketFactory.parse_store_bet_packet(data)
             # Cannot store bets for closed agencies.
-            if self._closed_agencies.contains(bet.agency):
+            if bet.agency in self._closed_agencies:
                 client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
                 return
             logging.info("action: store_bet | result: in_progress")
@@ -118,7 +117,7 @@ class Server:
             bets = PacketFactory.parse_store_batch_packet(data)
             # Cannot store bets for closed agencies.
             agency = bets[0].agency
-            if self._closed_agencies.contains(agency):
+            if agency in self._closed_agencies:
                 client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
                 return
             store_bets(bets)
@@ -167,10 +166,9 @@ class Server:
         """
         agency = PacketFactory.parse_winners_request_packet(data)
 
-        closed_agencies = self._closed_agencies.get_closed_agencies()
-        if len(closed_agencies) != self._config.agencies_amount:
+        if len(self._closed_agencies) != self._config.agencies_amount:
             logging.info(
-                f'action: send_winners | result: delayed | agency: {agency} | closed_agencies: {closed_agencies}')
+                f'action: send_winners | result: delayed | agency: {agency} | closed_agencies: {self._closed_agencies}')
             client_sock.send_all(NotReadyResponse().to_bytes())
         else:
             logging.info(f'action: send_winners | result: in_progress | agency: {agency}')
