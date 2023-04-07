@@ -14,14 +14,12 @@ from common.utils import store_bets
 from common.packets.winners_response import WinnersResponse
 from common.utils import load_bets, has_won
 
-from common.ipc.FLock import FLock
-
 from common.fd_check import assert_all_fds_are_closed
 from common.packets.not_ready_response import NotReadyResponse
 
 from common.ipc.closed_agencies import ClosedAgencies
 
-BETS_CSV_LOCK_NAME = "bets.csv.lock"
+from common.ipc.bets_db_manager import BetsDBManager
 
 
 class ServerConfig:
@@ -37,7 +35,7 @@ class Server:
         self._config = config
 
         self._closed_agencies = ClosedAgencies()
-        self._db_lock = FLock(BETS_CSV_LOCK_NAME)
+        self._db_manager = BetsDBManager()
 
         # When the bet ends, this will contain a dictionary with the winners per agency.
         # The key will be the agency number and the value will be a list of the documents
@@ -116,9 +114,7 @@ class Server:
                 client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
                 return
             logging.info("action: store_bet | result: in_progress")
-            self._db_lock.acquire()
-            store_bets([bet])
-            self._db_lock.release()
+            self._db_manager.store_bets([bet])
             logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
             client_sock.send_all(StoreResponse(STATUS_OK).to_bytes())
         except Exception as e:
@@ -133,14 +129,12 @@ class Server:
             if self._closed_agencies.contains(agency):
                 client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
                 return
-            self._db_lock.acquire()
-            store_bets(bets)
-            self._db_lock.release()
+            self._db_manager.store_bets(bets)
 
             logging.info(f'action: apuestas_almacenadas | result: success | cantidad: {len(bets)}')
             client_sock.send_all(StoreResponse(STATUS_OK).to_bytes())
         except Exception as e:
-            logging.error(f"action: parse_store_batch_packet | result: fail | error: {e}")
+            logging.error(f"action: handle_store_batch_packet | result: fail | error: {e}")
             client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
 
     def __handle_agency_close(self, data: bytes):
@@ -151,27 +145,8 @@ class Server:
             logging.info('action: sorteo | result: success')
         logging.info(f'action: agency_close | result: success | agency: {agency}')
 
-    def __populate_winners(self):
-        logging.info('action: populate_winners | result: in_progress')
-        self._winners_per_agency = {}
-        self._db_lock.acquire(exclusive=False)
-        for bet in load_bets():
-            if has_won(bet):
-                self._winners_per_agency.setdefault(bet.agency, [])
-                self._winners_per_agency[bet.agency].append(bet.document)
-
-        logging.info(f'action: populate_winners | result: success | winners: {self._winners_per_agency}')
-        self._db_lock.release()
-
-    def __get_winners_of_agency(self, agency: int) -> Set[str]:
-        if self._winners_per_agency is None:
-            logging.info(f'action: get_winners_of_agency | result: in_progress | agency: {agency}')
-            self.__populate_winners()
-
-        return self._winners_per_agency.get(agency, set())
-
     def __send_winners(self, client_sock: SocketWrapper, agency: str):
-        winners_of_agency = self.__get_winners_of_agency(int(agency))
+        winners_of_agency = self._db_manager.get_winners_of_agency(int(agency))
         winners_packet = WinnersResponse(winners_of_agency)
 
         client_sock.send_all(winners_packet.to_bytes())

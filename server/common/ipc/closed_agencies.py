@@ -27,18 +27,16 @@ class ClosedAgencies:
 
         The set is empty if the file does not exist.
         """
-        self._file_lock.acquire(exclusive=False)
-        try:
-            file = open(AGENCIES_CLOSED_FILE_PATH, "r")
-        except FileNotFoundError:
-            self._file_lock.release()
-            return set()
+        with self._file_lock(exclusive=False):
+            try:
+                file = open(AGENCIES_CLOSED_FILE_PATH, "r")
+            except FileNotFoundError:
+                return set()
 
-        agencies_closed = set()
-        for line in file:
-            agencies_closed.add(int(line))
-        file.close()
-        self._file_lock.release()
+            agencies_closed = set()
+            for line in file:
+                agencies_closed.add(int(line))
+            file.close()
         return agencies_closed
 
     def contains(self, agency: int) -> bool:
@@ -47,26 +45,21 @@ class ClosedAgencies:
         Returns False if the agency is not in the list of closed agencies or if the file does not exist.
         """
 
-        self._file_lock.acquire(exclusive=False)
-        try:
-            with open(AGENCIES_CLOSED_FILE_PATH, "r") as file:
-                for line in file:
-                    if int(line) == agency:
-                        file.close()
-                        self._file_lock.release()
-                        return True
-            self._file_lock.release()
-            return False
+        with self._file_lock(exclusive=False):
+            try:
+                with open(AGENCIES_CLOSED_FILE_PATH, "r") as file:
+                    for line in file:
+                        if int(line) == agency:
+                            file.close()
+                            return True
+                return False
 
-        except FileNotFoundError:
-            self._file_lock.release()
-            return False
+            except FileNotFoundError:
+                return False
 
     def add(self, agency: int):
         """
         Adds the agency to the list of closed agencies.
         """
-        self._file_lock.acquire()
-        with open(AGENCIES_CLOSED_FILE_PATH, "a+") as file:
+        with self._file_lock, open(AGENCIES_CLOSED_FILE_PATH, "a+") as file:
             write_all(file, f"{agency}\n")
-        self._file_lock.release()
