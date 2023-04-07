@@ -13,7 +13,7 @@ func buildDatasetPath(agencyId string) string {
 	return fmt.Sprintf("data/agency-%s.csv", agencyId)
 }
 
-func GetBetsFromFile(clientId string, betsPerRead int) (*BetsReader, error) {
+func CreateBetsReaderFromFile(clientId string, betsPerRead int) (*BetsReader, error) {
 	file, err := os.Open(buildDatasetPath(clientId))
 	if err != nil {
 		log.Fatalf("action: open_file | result: fail | error: %v", err)

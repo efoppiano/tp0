@@ -121,7 +121,7 @@ func sendBets(client *common.Client, clientConfig *common.ClientConfig) error {
 	bet, err := common.GetBetFromEnv()
 	// If there is an error reading the bet from the environment, try to read the bets from the file
 	if err != nil {
-		betsReader, err := common.GetBetsFromFile(clientConfig.ID, clientConfig.BatchSize)
+		betsReader, err := common.CreateBetsReaderFromFile(clientConfig.ID, clientConfig.BatchSize)
 
 		defer func() {
 			if err := betsReader.Close(); err != nil {
