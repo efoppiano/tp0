@@ -61,5 +61,5 @@ class ClosedAgencies:
         """
         Adds the agency to the list of closed agencies.
         """
-        with self._file_lock, open(AGENCIES_CLOSED_FILE_PATH, "a+") as file:
+        with self._file_lock(exclusive=True), open(AGENCIES_CLOSED_FILE_PATH, "a+") as file:
             write_all(file, f"{agency}\n")

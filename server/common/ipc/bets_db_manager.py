@@ -15,7 +15,7 @@ class BetsDBManager:
         self._winners_per_agency = None
 
     def store_bets(self, bets: List[Bet]):
-        with self._lock:
+        with self._lock(exclusive=True):
             store_bets(bets)
 
     def get_winners_of_agency(self, agency: int) -> List[str]:
