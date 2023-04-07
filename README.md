@@ -36,7 +36,6 @@
   - [Características de la Arquitectura del Servidor](#características-de-la-arquitectura-del-servidor)
     - [Comunicación y sincronización entre servidores](#comunicación-y-sincronización-entre-servidores)
     - [Archivos compartidos](#archivos-compartidos)
-    - [Socket UDP](#socket-udp)
 
 ## Enunciado
 [Link al enunciado](enunciado.md)
@@ -224,12 +223,6 @@ Los servidores se configuran en el archivo [server/config.ini](./server/config.i
 - `SERVER_LISTEN_BACKLOG`: Cantidad de conexiones pendientes que se pueden mantener en la cola de
 espera.
 
-- `UDP_BROADCAST_IP`: Dirección IP de broadcast para el envío de mensajes UDP. Se utiliza
-para la comunicación entre servidores. Ver [Comunicación y sincronización entre servidores](#comunicación-y-sincronización-entre-servidores)
-  para más información.
-
-- `UDP_BROADCAST_PORT`: Puerto de broadcast para el envío de mensajes UDP.
-
 - `AGENCIES_AMOUNT`: Cantidad de agencias que se van a simular. Los servidores esperarán a que todas
 se cierren para realizar el sorteo. Debe coincidir con la variable `CLIENTS` definida en el archivo
 `.env`.
@@ -356,13 +349,7 @@ necesario para mantener la consistencia del protocolo.
   determinar cuándo se puede realizar el sorteo.
 - Cada archivo se encuentra protegido con un FileLock diferente, para evitar race conditions.
 
-### Socket UDP
-
-- Cuando un servidor recibe el último paquete `AgencyClose`, envía un mensaje UDP a todos los servidores
-  para indicar que se puede realizar el sorteo. Para esto, se utiliza una IP de broadcast y un puerto
-  específico (`172.25.125.255:5000` con la configuración por defecto).
-- Cuando un servidor lo recibe, procede a contestar todos los paquetes `WinnersRequest` pendientes.
-
 
 ![diagrama_seq](resources/diagrama_seq.png)
+
 Diagrama de secuencia de la comunicación entre los clientes y los servidores.

@@ -115,14 +115,14 @@ class TestPackets(unittest.TestCase):
 
     def test_store_response_encode(self):
         data = StoreResponse(STATUS_OK).to_bytes()
-        self.assertEqual(data, b"StoreResponse:0\n")
+        self.assertEqual(data, b"\x00\x0fStoreResponse:0")
 
     def test_winners_response_encode(self):
         documents = ["34843065", "12345678", "87654321"]
         data = WinnersResponse(documents).to_bytes()
-        self.assertEqual(data, b"WinnersResponse:34843065;12345678;87654321\n")
+        self.assertEqual(data, b"\x00\x2aWinnersResponse:34843065;12345678;87654321")
 
     def test_winners_response_encode_empty(self):
         data = WinnersResponse([]).to_bytes()
-        self.assertEqual(data, b"WinnersResponse:\n")
+        self.assertEqual(data, b"\x00\x10WinnersResponse:")
 

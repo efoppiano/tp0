@@ -17,19 +17,18 @@ from common.utils import load_bets, has_won
 from common.ipc.FLock import FLock
 
 from common.fd_check import assert_all_fds_are_closed
-
-BET_ENDED_MSG = b'bet_ended'
-BETS_CSV_LOCK_NAME = "bets.csv.lock"
 from common.packets.not_ready_response import NotReadyResponse
+
+from common.ipc.closed_agencies import ClosedAgencies
+
+BETS_CSV_LOCK_NAME = "bets.csv.lock"
 
 
 class ServerConfig:
-    def __init__(self, logging_level, port, listen_backlog, udp_broadcast_ip, udp_broadcast_port, agencies_amount):
+    def __init__(self, logging_level, port, listen_backlog, agencies_amount):
         self.logging_level = logging_level
         self.port = port
         self.listen_backlog = listen_backlog
-        self.udp_broadcast_ip = udp_broadcast_ip
-        self.udp_broadcast_port = udp_broadcast_port
         self.agencies_amount = agencies_amount
 
 
@@ -45,15 +44,8 @@ class Server:
         # of the winners.
         self._winners_per_agency = None
 
-        self.__set_up_udp_socket()
         self.__set_up_tcp_socket()
         self._client_sock = None
-
-    def __set_up_udp_socket(self):
-        # Initialize UDP socket
-        self._server_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._server_udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self._server_udp_socket.bind(('', self._config.udp_broadcast_port))
 
     def __set_up_tcp_socket(self):
         # Initialize server socket
@@ -63,7 +55,7 @@ class Server:
         self._server_socket.listen(self._config.listen_backlog)
 
     def __bet_ended(self) -> bool:
-        return len(self._closed_agencies) == self._config.agencies_amount
+        return len(self._closed_agencies.get_closed_agencies()) == self._config.agencies_amount
 
     def run(self):
         """
@@ -75,19 +67,9 @@ class Server:
         while True:
             # Connection arrived
             logging.info('action: accept_connections | result: in_progress')
-            input_sources = [self._server_socket, self._server_udp_socket]
-            ready_to_read, _, _ = select.select(input_sources, [], [])
 
-            for source in ready_to_read:
-                if source is self._server_socket:
-                    client_sock = self.__accept_new_connection()
-                    self.__handle_client_connection(client_sock)
-
-                elif source is self._server_udp_socket:
-                    data, addr = self._server_udp_socket.recvfrom(1024)
-                    if data == BET_ENDED_MSG:
-                        logging.info('action: sorteo | result: success')
-                        self.__send_winners_to_waiting_agencies()
+            client_sock = self.__accept_new_connection()
+            self.__handle_client_connection(client_sock)
 
     def __handle_client_connection(self, client_sock: SocketWrapper):
         """
@@ -130,7 +112,7 @@ class Server:
         try:
             bet = PacketFactory.parse_store_bet_packet(data)
             # Cannot store bets for closed agencies.
-            if bet.agency in self._closed_agencies:
+            if self._closed_agencies.contains(bet.agency):
                 client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
                 return
             logging.info("action: store_bet | result: in_progress")
@@ -148,7 +130,7 @@ class Server:
             bets = PacketFactory.parse_store_batch_packet(data)
             # Cannot store bets for closed agencies.
             agency = bets[0].agency
-            if agency in self._closed_agencies:
+            if self._closed_agencies.contains(agency):
                 client_sock.send_all(StoreResponse(STATUS_ERROR).to_bytes())
                 return
             self._db_lock.acquire()
@@ -165,11 +147,9 @@ class Server:
         agency = PacketFactory.parse_agency_close_packet(data)
         logging.info(f'action: agency_close | result: in_progress | agency: {agency}')
         self._closed_agencies.add(int(agency))
-        logging.info(f'action: agency_close | result: success | agency: {agency}')
         if self.__bet_ended():
-            self._server_udp_socket.sendto(BET_ENDED_MSG,
-                                           (self._config.udp_broadcast_ip, self._config.udp_broadcast_port))
-            logging.info('action: broadcast | result: success')
+            logging.info('action: sorteo | result: success')
+        logging.info(f'action: agency_close | result: success | agency: {agency}')
 
     def __populate_winners(self):
         logging.info('action: populate_winners | result: in_progress')
@@ -197,7 +177,7 @@ class Server:
         client_sock.send_all(winners_packet.to_bytes())
         logging.info(f'action: send_winners | result: success | agency: {agency} | winners: {len(winners_of_agency)}')
 
-    def __handle_winners_request(self, client_sock: SocketWrapper, data: bytes) -> bool:
+    def __handle_winners_request(self, client_sock: SocketWrapper, data: bytes):
         """
         Handle winners request from an agency
         If all agencies have closed, send winners to agency immediately, returning True
@@ -205,7 +185,7 @@ class Server:
         """
         agency = PacketFactory.parse_winners_request_packet(data)
 
-        if len(self._closed_agencies) != self._config.agencies_amount:
+        if len(self._closed_agencies.get_closed_agencies()) != self._config.agencies_amount:
             logging.info(
                 f'action: send_winners | result: delayed | agency: {agency} | closed_agencies: {self._closed_agencies}')
             client_sock.send_all(NotReadyResponse().to_bytes())
@@ -233,7 +213,6 @@ class Server:
         """
         logging.info("action: shutdown | result: in_progress")
         self._server_socket.close()
-        self._server_udp_socket.close()
         if self._client_sock is not None:
             self._client_sock.close()
 
