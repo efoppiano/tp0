@@ -15,11 +15,17 @@
   * [Ejercicio 7](#ejercicio-7)
 * [Configuración](#configuración)
   * [Configuración de los clientes](#configuración-de-los-clientes)
+    * [Valor máximo de `batch_size`](#valor-máximo-de-`batch_size`)
   * [Configuración de los servidores](#configuración-de-los-servidores)
-* [Protocolo de comunicación cliente-servidor](#protocolo-de-comunicación-cliente-servidor)
+* [Protocolo de comunicación cliente-servidor](#protocolo-de-comunicacin-cliente-servidor)
   * [Tamaño del paquete](#tamaño-del-paquete)
   * [Codificación de los paquetes](#codificación-de-los-paquetes)
   * [Tipo de paquete](#tipo-de-paquete)
+  * [Paquetes](#paquetes)
+    * [StoreBet](#storebet)
+    * [StoreBatch](#storebatch)
+    * [StoreResponse](#storeresponse)
+
 
 ## Enunciado
 [Link al enunciado](enunciado.md)
