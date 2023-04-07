@@ -18,6 +18,5 @@ func (packet *WinnersRequestPacker) Encode() ([]byte, error) {
 	bytes = append(bytes, ':')
 	bytes = append(bytes, packet.Agency...)
 
-	bytes = append(bytes, '\n')
-	return bytes, nil
+	return AppendLengthToPacket(bytes)
 }
