@@ -41,24 +41,24 @@ class Server:
         """
 
         while True:
-            client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+            self._client_sock = self.__accept_new_connection()
+            self.__handle_client_connection()
 
-    def __handle_client_connection(self, client_sock: SocketWrapper):
+    def __handle_client_connection(self):
         """
         Read message from a specific client socket and closes the socket
 
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
-        addr = client_sock.getpeername()
+        addr = self._client_sock.getpeername()
         try:
-            self.__handle_packet(client_sock)
-            client_sock.close()
-            logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
+            self.__handle_packet(self._client_sock)
         except Exception as e:
             logging.error(f"action: receive_message | result: fail | ip: {addr[0]} | error: {e}")
-            client_sock.close()
+        finally:
+            self._client_sock.close()
+            self._client_sock = None
             logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
 
     def __handle_packet(self, client_sock: SocketWrapper):
