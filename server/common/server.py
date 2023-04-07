@@ -36,7 +36,7 @@ class Server:
         Dummy Server loop
 
         Server that accept a new connections and establishes a
-        communication with a client. After client with communucation
+        communication with a client. After client with communication
         finishes, servers starts to accept new connections again
         """
 
@@ -53,24 +53,21 @@ class Server:
         """
         addr = client_sock.getpeername()
         try:
-            should_close = self.__handle_packet(client_sock)
-            if should_close:
-                client_sock.close()
-                logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
+            self.__handle_packet(client_sock)
+            client_sock.close()
+            logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
         except Exception as e:
             logging.error(f"action: receive_message | result: fail | ip: {addr[0]} | error: {e}")
             client_sock.close()
             logging.info(f'action: client_disconnection | result: success | ip: {addr[0]}')
 
-    def __handle_packet(self, client_sock: SocketWrapper) -> bool:
+    def __handle_packet(self, client_sock: SocketWrapper):
         """
         Handles a packet received from a client.
-        Returns True if the socket should be closed, False otherwise.
         """
         data = PacketFactory.read_raw_packet(client_sock)
         if PacketFactory.is_for_store_bet(data):
             self.__handle_store_bet(client_sock, data)
-            return True
         else:
             raise ProtocolViolation("Invalid packet type.")
 
