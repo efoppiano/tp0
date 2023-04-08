@@ -128,6 +128,8 @@ class Server:
         agency = PacketFactory.parse_agency_close_packet(data)
         logging.info(f'action: agency_close | result: in_progress | agency: {agency}')
         self._closed_agencies.add(int(agency))
+        if self.__bet_ended():
+            logging.info("action: sorteo | result: success")
         logging.info(f'action: agency_close | result: success | agency: {agency}')
 
     def __populate_winners(self):
