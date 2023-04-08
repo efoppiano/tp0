@@ -159,8 +159,8 @@ class Server:
     def __handle_winners_request(self, client_sock: SocketWrapper, data: bytes):
         """
         Handle winners request from an agency
-        If all agencies have closed, send winners to agency immediately, returning True
-        Otherwise, add agency to waiting list and return False
+        If all agencies have closed, respond with winners
+        Otherwise, respond with NotReadyResponse
         """
         agency = PacketFactory.parse_winners_request_packet(data)
 
