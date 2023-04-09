@@ -29,15 +29,13 @@ class ClosedAgencies:
         """
         with self._file_lock(exclusive=False):
             try:
-                file = open(AGENCIES_CLOSED_FILE_PATH, "r")
+                with open(AGENCIES_CLOSED_FILE_PATH, "r") as file:
+                    agencies_closed = set()
+                    for line in file:
+                        agencies_closed.add(int(line))
+                return agencies_closed
             except FileNotFoundError:
                 return set()
-
-            agencies_closed = set()
-            for line in file:
-                agencies_closed.add(int(line))
-            file.close()
-        return agencies_closed
 
     def contains(self, agency: int) -> bool:
         """
@@ -50,10 +48,8 @@ class ClosedAgencies:
                 with open(AGENCIES_CLOSED_FILE_PATH, "r") as file:
                     for line in file:
                         if int(line) == agency:
-                            file.close()
                             return True
                 return False
-
             except FileNotFoundError:
                 return False
 
